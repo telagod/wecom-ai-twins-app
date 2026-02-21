@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WeCom AI Twins</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- 设置弹窗 -->
+  <div id="settings-overlay" class="overlay">
+    <div class="settings-panel">
+      <h3>⚙️ 连接设置</h3>
+      <label>Gateway 地址</label>
+      <input id="gateway-url" type="text" placeholder="ws://127.0.0.1:18789" />
+      <label>Token</label>
+      <input id="gateway-token" type="password" placeholder="Gateway Token" />
+      <div class="settings-actions">
+        <button id="btn-save-settings">保存</button>
+        <button id="btn-cancel-settings" class="secondary">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="app">
+    <!-- 侧边栏 -->
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <span class="logo">🤖 数字员工</span>
+      </div>
+      <div id="agent-list" class="agent-list"></div>
+      <div class="sidebar-footer">
+        <div id="conn-status" class="status disconnected">未连接</div>
+      </div>
+    </aside>
+
+    <!-- 主区域 -->
+    <main>
+      <header>
+        <span id="current-agent">主会话</span>
+        <div class="header-actions">
+          <button id="btn-connect" class="small">连接</button>
+          <button id="btn-settings" class="small icon">⚙️</button>
+        </div>
+      </header>
+
+      <div id="messages" class="messages"></div>
+
+      <div class="input-area">
+        <div class="quick-cmds">
+          <button class="cmd" data-cmd="/new">🔄 新会话</button>
+          <button class="cmd" data-cmd="/status">📊 状态</button>
+          <button class="cmd" data-cmd="/compact">📦 压缩</button>
+        </div>
+        <form id="chat-form">
+          <textarea id="chat-input" placeholder="输入消息..." rows="1"></textarea>
+          <button type="submit" id="btn-send">发送</button>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="/main.js"></script>
+</body>
+</html>
