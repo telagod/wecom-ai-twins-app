@@ -94,13 +94,13 @@ function bindConfig(el) {
       await window.__app.ws.manage.configPatch(patch);
       el.querySelector('#s-save-config').textContent = '已保存 ✓';
       setTimeout(() => el.querySelector('#s-save-config').textContent = '保存到 Gateway', 1500);
-    } catch (e) { alert('保存失败: ' + e.message); }
+    } catch (e) { window.__app.toast('保存失败: ' + e.message, 'error'); }
   });
 }
 
 function bindAdvanced(el) {
   el.querySelector('#s-save-local')?.addEventListener('click', () => {
-    try { window.__app.ws.saveSettings(JSON.parse(el.querySelector('#s-local').value)); alert('已保存'); }
-    catch { alert('JSON 格式错误'); }
+    try { window.__app.ws.saveSettings(JSON.parse(el.querySelector('#s-local').value)); window.__app.toast('已保存', 'success'); }
+    catch { window.__app.toast('JSON 格式错误', 'error'); }
   });
 }

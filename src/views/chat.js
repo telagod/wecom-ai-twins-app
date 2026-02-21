@@ -118,8 +118,16 @@ export async function mount(el) {
   });
 }
 
-function renderMsg(m) { return `<div class="msg msg-${m.role}">${escHtml(m.text)}</div>`; }
+function renderMsg(m) { return `<div class="msg msg-${m.role}">${md(m.text)}</div>`; }
 function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function md(s) {
+  return escHtml(s)
+    .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/\n/g, '<br>');
+}
 
 export function onAgentEvent(payload) {
   const $msgs = document.getElementById('chat-msgs');
