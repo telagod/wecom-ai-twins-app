@@ -26,7 +26,7 @@ $nav.addEventListener('click', e => {
 // Mobile menu toggle
 document.getElementById('menu-toggle')?.addEventListener('click', () => $sidebar.classList.toggle('open'));
 document.addEventListener('click', e => {
-  if (window.innerWidth <= 900 && $sidebar.classList.contains('open') && !$sidebar.contains(e.target) && e.target.id !== 'menu-toggle') $sidebar.classList.remove('open');
+  if (window.innerWidth <= 768 && $sidebar.classList.contains('open') && !$sidebar.contains(e.target) && e.target.id !== 'menu-toggle' && !e.target.closest('#menu-toggle')) $sidebar.classList.remove('open');
 });
 
 let currentView = null;
@@ -39,9 +39,7 @@ async function navigate(route) {
     const mod = await import(routes[route]);
     if (currentView?.destroy) currentView.destroy();
     currentView = mod;
-    const menuBtn = $content.querySelector('#menu-toggle');
     $content.innerHTML = `<div class="fade-in">${mod.render()}</div>`;
-    if (menuBtn) $content.prepend(menuBtn);
     if (mod.mount) mod.mount($content);
   } catch (e) {
     $content.innerHTML = `<div class="fade-in"><p style="color:var(--danger)">加载失败: ${e.message}</p></div>`;
