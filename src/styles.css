@@ -163,5 +163,31 @@ body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); c
 .channel-info .name { font-weight: 500; font-size: 14px; }
 .channel-info .detail { font-size: 12px; color: var(--fg2); }
 
+/* Toast */
+.toast-container { position: fixed; top: 16px; right: 16px; z-index: 200; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.toast { padding: 10px 18px; border-radius: var(--radius-sm); font-size: 13px; backdrop-filter: var(--blur); animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards; pointer-events: auto; }
+.toast-success { background: rgba(74,222,128,0.15); border: 1px solid rgba(74,222,128,0.2); color: var(--success); }
+.toast-error { background: rgba(248,113,113,0.15); border: 1px solid rgba(248,113,113,0.2); color: var(--danger); }
+.toast-info { background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.15); color: var(--accent); }
+@keyframes toastIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes toastOut { to { opacity: 0; transform: translateX(20px); } }
+
+/* Loading skeleton */
+.skeleton { background: linear-gradient(90deg, rgba(255,215,0,0.03) 25%, rgba(255,215,0,0.06) 50%, rgba(255,215,0,0.03) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: var(--radius-xs); height: 20px; }
+
+/* Responsive */
+@media (max-width: 900px) {
+  #sidebar { width: 0; min-width: 0; border: none; position: fixed; height: 100vh; z-index: 20; }
+  #sidebar.open { width: var(--sidebar-exp); min-width: var(--sidebar-exp); border-right: 1px solid rgba(255,215,0,0.06); }
+  #sidebar.open .nav-item span, #sidebar.open .sidebar-logo span, #sidebar.open .sidebar-footer span { opacity: 1; }
+  .menu-toggle { display: flex !important; }
+  #content { padding: 16px; }
+  .card-grid { grid-template-columns: 1fr; }
+  .chat-layout { flex-direction: column; }
+  .chat-sessions { width: 100%; max-height: 140px; border-right: none; border-bottom: 1px solid rgba(255,215,0,0.06); }
+  .page-header h1 { font-size: 20px; }
+}
+@media (min-width: 901px) { .menu-toggle { display: none !important; } }
+
 /* Selection highlight */
 ::selection { background: rgba(255,215,0,0.2); color: var(--fg); }
