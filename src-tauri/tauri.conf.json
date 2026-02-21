@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "WeCom AI Twins",
+  "productName": "OpenClaw Desktop",
   "version": "0.1.0",
   "identifier": "com.telagod.wecom-ai-twins",
   "build": {
@@ -10,11 +10,13 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "WeCom AI Twins",
-        "width": 960,
-        "height": 680,
-        "minWidth": 720,
-        "minHeight": 480
+        "title": "OpenClaw Desktop",
+        "width": 1080,
+        "height": 720,
+        "minWidth": 800,
+        "minHeight": 520,
+        "decorations": true,
+        "transparent": false
       }
     ],
     "security": {
