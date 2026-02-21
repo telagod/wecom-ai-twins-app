@@ -75,8 +75,62 @@ jobs:
             src-tauri/target/release/bundle/**/*.AppImage
           if-no-files-found: ignore
 
+  build-android:
+    runs-on: ubuntu-latest
+    name: Build (Android)
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          cache-on-failure: true
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK
+        run: sdkmanager --install "ndk;27.0.12077973"
+
+      - run: npm ci
+
+      - name: Init Android project
+        run: npx tauri android init
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
+
+      - name: Build APK
+        run: npx tauri android build --apk
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-Android
+          path: |
+            src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          if-no-files-found: ignore
+
   release:
-    needs: build
+    needs: [build, build-android]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
@@ -86,14 +140,14 @@ jobs:
           merge-multiple: true
 
       - name: List artifacts
-        run: find artifacts -type f | head -30
+        run: find artifacts -type f | head -40
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           draft: true
           name: 'OpenClaw Desktop ${{ github.ref_name }}'
-          body: 'OpenClaw 桌面管理器'
+          body: 'OpenClaw 桌面管理器 + Android'
           files: |
             artifacts/**/*.dmg
             artifacts/**/*.deb
@@ -101,3 +155,4 @@ jobs:
             artifacts/**/*.AppImage
             artifacts/**/*.msi
             artifacts/**/*.exe
+            artifacts/**/*.apk
