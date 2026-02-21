@@ -1,96 +1,106 @@
 export function render() {
   const s = window.__app.ws.state.settings;
-  return `<div class="page-header"><h1>设置</h1><p>Gateway 连接与模型配置</p></div>
+  return `<div class="page-header"><h1>设置</h1><p>Gateway 连接与配置管理</p></div>
     <div class="tabs">
-      <button class="tab active" data-tab="general">通用</button>
+      <button class="tab active" data-tab="gateway">Gateway</button>
       <button class="tab" data-tab="models">模型</button>
-      <button class="tab" data-tab="gateway">Gateway</button>
+      <button class="tab" data-tab="config">配置</button>
       <button class="tab" data-tab="advanced">高级</button>
     </div>
-    <div id="tab-content">
-      ${renderGeneral(s)}
-    </div>`;
-}
-
-function renderGeneral(s) {
-  return `<div class="settings-section fade-in">
-    <div><label class="input-label">语言</label><select class="input"><option>中文</option><option>English</option></select></div>
-    <div><label class="input-label">主题</label><select class="input"><option>深色</option></select></div>
-  </div>`;
-}
-
-function renderModels(s) {
-  return `<div class="settings-section fade-in">
-    <div><label class="input-label">Provider</label>
-      <select class="input" id="s-provider"><option value="anthropic" ${s.provider==='anthropic'?'selected':''}>Anthropic</option><option value="openai" ${s.provider==='openai'?'selected':''}>OpenAI</option><option value="custom">自定义</option></select></div>
-    <div><label class="input-label">API Base URL</label><input class="input" id="s-apiurl" value="${s.apiUrl || ''}"></div>
-    <div><label class="input-label">API Key</label><input class="input" id="s-apikey" type="password" value="${s.apiKey || ''}"></div>
-    <div><label class="input-label">模型 ID</label><input class="input" id="s-model" value="${s.model || ''}"></div>
-    <button class="btn btn-primary" id="s-save-model">保存</button>
-  </div>`;
+    <div id="tab-content">${renderGateway(s)}</div>`;
 }
 
 function renderGateway(s) {
   return `<div class="settings-section fade-in">
-    <div><label class="input-label">Gateway URL</label><input class="input" id="s-gwurl" value="${s.url || 'ws://127.0.0.1:18789'}"></div>
-    <div><label class="input-label">Auth Token</label><input class="input" id="s-gwtoken" type="password" value="${s.token || ''}"></div>
+    <div><label class="input-label">Gateway URL</label><input class="input" id="s-url" value="${s.url || 'ws://127.0.0.1:18789'}"></div>
+    <div><label class="input-label">Auth Token</label><input class="input" id="s-token" type="password" value="${s.token || ''}"></div>
     <button class="btn btn-primary" id="s-save-gw">保存并重连</button>
+  </div>`;
+}
+
+function renderModels() {
+  const models = window.__app.ws.state.models;
+  return `<div class="fade-in">
+    <div class="card-title" style="margin-bottom:12px">可用模型 (${models.length})</div>
+    ${models.length ? models.map(m => `<div class="glass-card" style="padding:12px;margin-bottom:8px">
+      <div style="font-size:14px;font-weight:500">${m.name || m.id}</div>
+      <div style="font-size:12px;color:var(--fg2)">${m.provider || ''} · ${m.id}</div>
+    </div>`).join('') : '<div style="color:var(--fg2);font-size:13px">连接 Gateway 后显示</div>'}
+    <button class="btn btn-secondary btn-sm" id="s-refresh-models" style="margin-top:12px">刷新模型列表</button>
+  </div>`;
+}
+
+function renderConfig() {
+  return `<div class="fade-in">
+    <p style="color:var(--fg2);font-size:13px;margin-bottom:12px">从 Gateway 读取 openclaw.json 配置</p>
+    <button class="btn btn-secondary btn-sm" id="s-load-config">加载配置</button>
+    <textarea class="json-editor" id="s-config" style="margin-top:12px" placeholder="点击「加载配置」"></textarea>
+    <button class="btn btn-primary btn-sm" id="s-save-config" style="margin-top:8px">保存到 Gateway</button>
   </div>`;
 }
 
 function renderAdvanced(s) {
   return `<div class="fade-in">
-    <p style="color:var(--fg2);font-size:13px;margin-bottom:12px">openclaw.json 原始编辑（需要 Tauri 命令支持）</p>
-    <textarea class="json-editor" id="s-json" placeholder="{ ... }">${JSON.stringify(s, null, 2)}</textarea>
-    <div style="margin-top:12px"><button class="btn btn-primary" id="s-save-json">保存</button></div>
+    <p style="color:var(--fg2);font-size:13px;margin-bottom:12px">本地客户端设置（localStorage）</p>
+    <textarea class="json-editor" id="s-local">${JSON.stringify(s, null, 2)}</textarea>
+    <button class="btn btn-primary btn-sm" id="s-save-local" style="margin-top:8px">保存</button>
   </div>`;
 }
 
 export function mount(el) {
+  const { ws } = window.__app;
+  const s = ws.state.settings;
   const tabs = el.querySelectorAll('.tab');
   const $tc = el.querySelector('#tab-content');
-  const s = window.__app.ws.state.settings;
 
   tabs.forEach(tab => tab.onclick = () => {
     tabs.forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
     const t = tab.dataset.tab;
-    if (t === 'general') $tc.innerHTML = renderGeneral(s);
-    else if (t === 'models') { $tc.innerHTML = renderModels(s); bindModels(el); }
-    else if (t === 'gateway') { $tc.innerHTML = renderGateway(s); bindGateway(el); }
+    if (t === 'gateway') { $tc.innerHTML = renderGateway(s); bindGateway(el); }
+    else if (t === 'models') { $tc.innerHTML = renderModels(); bindModels(el); }
+    else if (t === 'config') { $tc.innerHTML = renderConfig(); bindConfig(el); }
     else if (t === 'advanced') { $tc.innerHTML = renderAdvanced(s); bindAdvanced(el); }
   });
-}
-
-function bindModels(el) {
-  el.querySelector('#s-save-model')?.addEventListener('click', () => {
-    window.__app.ws.saveSettings({
-      provider: el.querySelector('#s-provider')?.value,
-      apiUrl: el.querySelector('#s-apiurl')?.value,
-      apiKey: el.querySelector('#s-apikey')?.value,
-      model: el.querySelector('#s-model')?.value,
-    });
-    alert('已保存');
-  });
+  bindGateway(el);
 }
 
 function bindGateway(el) {
   el.querySelector('#s-save-gw')?.addEventListener('click', () => {
-    window.__app.ws.saveSettings({
-      url: el.querySelector('#s-gwurl')?.value,
-      token: el.querySelector('#s-gwtoken')?.value,
-    });
+    window.__app.ws.saveSettings({ url: el.querySelector('#s-url')?.value, token: el.querySelector('#s-token')?.value });
     window.__app.ws.disconnect();
     setTimeout(() => window.__app.tryConnect(), 300);
   });
 }
 
-function bindAdvanced(el) {
-  el.querySelector('#s-save-json')?.addEventListener('click', () => {
+function bindModels(el) {
+  el.querySelector('#s-refresh-models')?.addEventListener('click', async () => {
+    try { const res = await window.__app.ws.observe.modelsList(); window.__app.ws.state.models = res?.models || []; } catch {}
+    el.querySelector('#tab-content').innerHTML = renderModels();
+    bindModels(el);
+  });
+}
+
+function bindConfig(el) {
+  el.querySelector('#s-load-config')?.addEventListener('click', async () => {
     try {
-      const obj = JSON.parse(el.querySelector('#s-json')?.value);
-      window.__app.ws.saveSettings(obj);
-      alert('已保存');
-    } catch { alert('JSON 格式错误'); }
+      const res = await window.__app.ws.manage.configGet();
+      el.querySelector('#s-config').value = JSON.stringify(res?.config || res, null, 2);
+    } catch (e) { el.querySelector('#s-config').value = '加载失败: ' + e.message; }
+  });
+  el.querySelector('#s-save-config')?.addEventListener('click', async () => {
+    try {
+      const patch = JSON.parse(el.querySelector('#s-config').value);
+      await window.__app.ws.manage.configPatch(patch);
+      el.querySelector('#s-save-config').textContent = '已保存 ✓';
+      setTimeout(() => el.querySelector('#s-save-config').textContent = '保存到 Gateway', 1500);
+    } catch (e) { alert('保存失败: ' + e.message); }
+  });
+}
+
+function bindAdvanced(el) {
+  el.querySelector('#s-save-local')?.addEventListener('click', () => {
+    try { window.__app.ws.saveSettings(JSON.parse(el.querySelector('#s-local').value)); alert('已保存'); }
+    catch { alert('JSON 格式错误'); }
   });
 }
