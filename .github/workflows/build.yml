@@ -11,6 +11,7 @@ permissions:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: macos-latest
@@ -35,10 +36,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          cache-on-failure: true
 
       - name: Install Linux deps
         if: runner.os == 'Linux'
@@ -52,11 +59,10 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'WeCom AI Twins ${{ github.ref_name }}'
-          releaseBody: '企业微信 AI 数字员工桌面客户端'
+          releaseName: 'OpenClaw Desktop ${{ github.ref_name }}'
+          releaseBody: 'OpenClaw 桌面管理器'
           releaseDraft: true
           prerelease: false
           args: --target ${{ matrix.target }}
