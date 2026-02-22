@@ -324,14 +324,19 @@ function renderInstall(c) {
 async function doInstall(c) {
   const log = c.querySelector('#install-log'), btn = c.querySelector('#btn-install');
   btn.disabled = true; btn.textContent = '安装中...';
-  log.textContent = '$ bun install -g openclaw\n';
+  log.textContent = '📦 正在安装 OpenClaw...\n';
   try {
-    const cmd = Shell().Command.create('sh', ['-c', 'export PATH="$HOME/.bun/bin:$PATH" && bun install -g openclaw']);
+    const cmd = Shell().Command.create('sh', ['-c',
+      'export PATH="$HOME/.bun/bin:$PATH" && ' +
+      'echo "📥 bun install -g openclaw" && ' +
+      'bun install -g openclaw 2>&1 && ' +
+      'echo "✅ 安装完成"'
+    ]);
     cmd.stdout.on('data', l => { log.textContent += l + '\n'; log.scrollTop = log.scrollHeight; });
     cmd.stderr.on('data', l => { log.textContent += l + '\n'; log.scrollTop = log.scrollHeight; });
     await cmd.spawn();
     const status = await new Promise(r => cmd.on('close', r));
-    if (status.code === 0) { env.openclaw = 'installed'; log.textContent += '\n✅ 安装完成\n'; btn.textContent = '已安装'; window.__app.toast('OpenClaw 安装成功', 'success'); }
+    if (status.code === 0) { env.openclaw = 'installed'; btn.textContent = '已安装'; window.__app.toast('OpenClaw 安装成功', 'success'); }
     else { btn.disabled = false; btn.textContent = '重试安装'; log.textContent += '\n❌ 安装失败 (exit ' + status.code + ')\n'; }
   } catch (e) { btn.disabled = false; btn.textContent = '重试安装'; log.textContent += '\n❌ ' + e.message + '\n'; }
 }
