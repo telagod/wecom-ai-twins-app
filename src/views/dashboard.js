@@ -16,10 +16,10 @@ export function render() {
           <div class="card-value" style="font-size:20px">${connected ? t('dash.running') : t('dash.disconnected')}</div>
         </div>
         <div class="card-sub">${s.settings.url || '—'}</div>
-        ${d.version ? `<div class="card-sub">v${d.version}${d.uptime ? ' · 运行 ' + fmtUptime(d.uptime) : ''}</div>` : ''}
+        ${d.version ? `<div class="card-sub">v${d.version}${d.uptime ? ' · ' + t('dash.uptime', fmtUptime(d.uptime)) : ''}</div>` : ''}
         <div style="margin-top:14px">
           <button class="btn ${connected ? 'btn-secondary' : 'btn-primary'} btn-sm" id="gw-toggle">
-            ${connected ? icons.stop + ' 断开' : icons.play + ' 连接'}
+            ${connected ? icons.stop + ' ' + t('dash.disconnect') : icons.play + ' ' + t('dash.connect')}
           </button>
         </div>
       </div>
@@ -27,7 +27,7 @@ export function render() {
         <div class="card-title">${t('dash.sessions')}</div>
         <div class="card-value">${s.sessions.length}</div>
         <div class="card-sub">${t('dash.activeSessions')}</div>
-        ${d.tokenTotal ? `<div class="card-sub" style="margin-top:6px">累计 ${fmtNum(d.tokenTotal)} tokens</div>` : ''}
+        ${d.tokenTotal ? `<div class="card-sub" style="margin-top:6px">${t("dash.tokens", fmtNum(d.tokenTotal))}</div>` : ''}
       </div>
       <div class="glass-card">
         <div class="card-title">${t('dash.agents')} (${s.agents.length})</div>
@@ -45,7 +45,7 @@ export function render() {
     <div style="margin-top:24px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <div class="card-title" style="margin:0">${t('dash.recentSessions')}</div>
-        <button class="btn btn-secondary btn-sm" id="refresh-btn">${icons.loader} 刷新</button>
+        <button class="btn btn-secondary btn-sm" id="refresh-btn">${icons.loader} ${t('dash.refresh')}</button>
       </div>
       <div id="sessions-list">${renderSessions(s.sessions)}</div>
     </div>`;
@@ -65,7 +65,7 @@ function renderModels(models) {
   return models.slice(0, 5).map(m => `<div style="font-size:13px;margin-bottom:4px;display:flex;justify-content:space-between">
     <span>${m.name || m.id}</span>
     ${m.provider ? `<span style="color:var(--fg3);font-size:11px">${m.provider}</span>` : ''}
-  </div>`).join('') + (models.length > 5 ? `<div style="font-size:11px;color:var(--fg3)">+${models.length - 5} 更多</div>` : '');
+  </div>`).join('') + (models.length > 5 ? `<div style="font-size:11px;color:var(--fg3)">${t('dash.more', models.length - 5)}</div>` : '');
 }
 
 function renderChannels(channels) {
@@ -73,7 +73,7 @@ function renderChannels(channels) {
   return channels.map(ch => {
     const ok = ch.connected || ch.status === 'connected' || ch.status === 'ok';
     return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-      <span class="badge ${ok ? 'badge-success' : 'badge-danger'}">${ok ? '在线' : '离线'}</span>
+      <span class="badge ${ok ? 'badge-success' : 'badge-danger'}">${ok ? '${t('common.online')}' : '${t('common.offline')}'}</span>
       <span style="font-size:13px">${ch.label || ch.id || ch.channel}</span>
     </div>`;
   }).join('');
@@ -91,7 +91,7 @@ function renderSessions(sessions) {
         <div><div style="font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px">${label}</div>
           <div style="font-size:11px;color:var(--fg3)">${[agent, model].filter(Boolean).join(' · ')}</div></div>
         <div style="text-align:right">
-          <span class="badge badge-success">活跃</span>
+          <span class="badge badge-success">${t('dash.active')}</span>
           ${age ? `<div style="font-size:10px;color:var(--fg3);margin-top:2px">${age}</div>` : ''}
         </div>
       </div></div>`;
@@ -109,10 +109,10 @@ function fmtNum(n) { return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (
 
 function fmtAge(ts) {
   const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
-  if (diff < 60) return '刚刚';
-  if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`;
-  return `${Math.floor(diff / 86400)}天前`;
+  if (diff < 60) return t('dash.justNow');
+  if (diff < 3600) return t("dash.minAgo", Math.floor(diff / 60));
+  if (diff < 86400) return t("dash.hourAgo", Math.floor(diff / 3600));
+  return t("dash.dayAgo", Math.floor(diff / 86400));
 }
 
 export function mount(el) {

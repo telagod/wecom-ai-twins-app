@@ -9,7 +9,7 @@ export function render() {
   return `<div class="chat-layout">
     <div class="chat-sessions glass-sm">
       <div style="padding-bottom:12px;display:flex;justify-content:space-between;align-items:center">
-        <span style="font-weight:500;font-size:13px;color:var(--fg2)">会话</span>
+        <span style="font-weight:500;font-size:13px;color:var(--fg2)">${t('chat.sessions')}</span>
         <button class="btn-icon" id="refresh-sessions">${icons.loader}</button>
       </div>
       <div id="session-list">${renderSessionList(ws.state.sessions)}</div>
@@ -18,8 +18,8 @@ export function render() {
       <div style="padding:10px 20px;border-bottom:1px solid var(--glass-border);display:flex;justify-content:space-between;align-items:center">
         <span style="font-size:13px;color:var(--fg2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0" id="chat-title">${activeSession || '${t('chat.select')}'}</span>
         <div style="display:flex;gap:6px">
-          <button class="btn-icon" title="中止回复" aria-label="中止回复" id="btn-abort">${icons.stop}</button>
-          <button class="btn-icon" title="重置会话" aria-label="重置会话" id="btn-reset">${icons.x}</button>
+          <button class="btn-icon" title="${t("chat.abort")}" aria-label="${t("chat.abort")}" id="btn-abort">${icons.stop}</button>
+          <button class="btn-icon" title="${t("chat.reset")}" aria-label="${t("chat.reset")}" id="btn-reset">${icons.x}</button>
         </div>
       </div>
       <div class="chat-messages" id="chat-msgs"></div>
@@ -30,8 +30,8 @@ export function render() {
           <button class="quick-cmd" data-cmd="/compact">${t('chat.compact')}</button>
         </div>
         <form class="chat-form" id="chat-form">
-          <textarea class="input" id="chat-input" placeholder="${t('chat.input')}" rows="1" aria-label="消息输入"></textarea>
-          <button type="submit" class="btn btn-primary" aria-label="发送">${icons.send}</button>
+          <textarea class="input" id="chat-input" placeholder="${t('chat.input')}" rows="1" aria-label="${t("chat.input")}"></textarea>
+          <button type="submit" class="btn btn-primary" aria-label="${t("chat.send")}">${icons.send}</button>
         </form>
       </div>
     </div>

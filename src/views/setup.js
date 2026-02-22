@@ -9,7 +9,7 @@ const PROVIDERS = [
   { id: 'openai', name: 'OpenAI', api: 'openai-chat', placeholder: 'sk-...' },
   { id: 'deepseek', name: 'DeepSeek', api: 'openai-chat', baseUrl: 'https://api.deepseek.com', placeholder: 'sk-...' },
   { id: 'openrouter', name: 'OpenRouter', api: 'openai-chat', baseUrl: 'https://openrouter.ai/api/v1', placeholder: 'sk-or-...' },
-  { id: 'custom', name: '自定义 (OpenAI 兼容)', api: 'openai-chat', placeholder: 'API Key' },
+  { id: 'custom', name: 'Custom (OpenAI-compatible)', api: 'openai-chat', placeholder: 'API Key' },
 ];
 
 const desktopSteps = [t('setup.step.detect'), t('setup.step.install'), t('setup.step.provider'), t('setup.step.gateway'), t('setup.step.done')];
@@ -51,7 +51,7 @@ function handleNext(el) {
 
 function handleNextMobile(el) {
   if (step === 0) {
-    if (!env.connected) { window.__app.toast('请先测试连接', 'error'); return; }
+    if (!env.connected) { window.__app.toast(t('setup.mobile.fail'), 'error'); return; }
     step = 1;
   } else { window.__app.navigate('dashboard'); return; }
   refresh(el);
@@ -59,16 +59,16 @@ function handleNextMobile(el) {
 
 function handleNextDesktop(el) {
   if (step === 0) {
-    if (!env.bun) { window.__app.toast('请先安装 Bun', 'error'); return; }
+    if (!env.bun) { window.__app.toast('Install Bun first', 'error'); return; }
     step = env.openclaw ? 2 : 1;
   } else if (step === 1) {
-    if (!env.openclaw) { window.__app.toast('请先完成安装', 'error'); return; }
+    if (!env.openclaw) { window.__app.toast('Install OpenClaw first', 'error'); return; }
     step = 2;
   } else if (step === 2) {
-    if (!env.providerOk) { window.__app.toast('请先保存 Provider 配置', 'error'); return; }
+    if (!env.providerOk) { window.__app.toast('Configure provider first', 'error'); return; }
     step = 3;
   } else if (step === 3) {
-    if (!env.gwRunning) { window.__app.toast('请先启动 Gateway', 'error'); return; }
+    if (!env.gwRunning) { window.__app.toast('Start Gateway first', 'error'); return; }
     step = 4;
   } else { window.__app.navigate('dashboard'); return; }
   refresh(el);
@@ -116,18 +116,18 @@ async function testMobileConnect(c) {
   const url = c.querySelector('#m-url').value.trim();
   const token = c.querySelector('#m-token').value.trim();
   const result = c.querySelector('#m-result');
-  if (!url) { result.innerHTML = '<span style="color:var(--danger)">请输入 Gateway 地址</span>'; return; }
-  result.innerHTML = '<span style="color:var(--warn)">连接中...</span>';
+  if (!url) { result.innerHTML = '<span style="color:var(--danger)">Enter Gateway URL</span>'; return; }
+  result.innerHTML = '<span style="color:var(--warn)">Connecting...</span>';
   try {
     const ws = new WebSocket(url);
     await new Promise((ok, fail) => { ws.onopen = ok; ws.onerror = fail; setTimeout(fail, 5000); });
     ws.close();
     window.__app.ws.saveSettings({ url, token });
     env.connected = true;
-    result.innerHTML = '<span style="color:var(--success)">✅ 连接成功</span>';
-    window.__app.toast('Gateway 可达', 'success');
+    result.innerHTML = '<span style="color:var(--success)">✅ Connected</span>';
+    window.__app.toast('Gateway reachable', 'success');
   } catch {
-    result.innerHTML = '<span style="color:var(--danger)">连接失败 — 请检查地址和网络</span>';
+    result.innerHTML = '<span style="color:var(--danger)">Connection failed</span>';
   }
 }
 
@@ -139,7 +139,7 @@ async function startQRScan(c) {
   const canvas = c.querySelector('#m-canvas');
   const result = c.querySelector('#m-result');
   scanner.style.display = '';
-  result.innerHTML = '<span style="color:var(--warn)">对准二维码...</span>';
+  result.innerHTML = '<span style="color:var(--warn)">Point at QR code...</span>';
 
   // Load jsQR from CDN if not loaded
   if (!window.jsQR) {
@@ -168,7 +168,7 @@ async function startQRScan(c) {
     }, 300);
   } catch (e) {
     stopQRScan(c);
-    result.innerHTML = `<span style="color:var(--danger)">摄像头访问失败: ${e.message}</span>`;
+    result.innerHTML = `<span style="color:var(--danger)">Camera access failed: ${e.message}</span>`;
   }
 }
 
@@ -198,16 +198,16 @@ function parseQR(c, data) {
       c.querySelector('#m-url').value = url;
       if (token) c.querySelector('#m-token').value = token;
       result.innerHTML = `<span style="color:var(--success)">✅ 已识别: ${url}</span>`;
-      window.__app.toast('二维码识别成功', 'success');
+      window.__app.toast('QR code scanned', 'success');
     } else {
-      result.innerHTML = '<span style="color:var(--danger)">无法识别二维码内容</span>';
+      result.innerHTML = '<span style="color:var(--danger)">Unrecognized QR content</span>';
     }
-  } catch { result.innerHTML = '<span style="color:var(--danger)">二维码格式错误</span>'; }
+  } catch { result.innerHTML = '<span style="color:var(--danger)">Invalid QR format</span>'; }
 }
 
 function probeLAN(c) {
   const result = c.querySelector('#m-result');
-  result.innerHTML = '<span style="color:var(--warn)">探测中...</span>';
+  result.innerHTML = '<span style="color:var(--warn)">Scanning...</span>';
   const ports = [18789, 19001];
   const subnet = '192.168.1';
   let found = false, checked = 0, total = 10 * ports.length;
@@ -217,7 +217,7 @@ function probeLAN(c) {
     for (const port of ports) {
       try {
         const ws = new WebSocket(`ws://${subnet}.${i}:${port}`);
-        const t = setTimeout(() => { ws.close(); if (++checked >= total && !found) result.innerHTML = '<span style="color:var(--fg2)">未发现 Gateway</span>'; }, 2000);
+        const t = setTimeout(() => { ws.close(); if (++checked >= total && !found) result.innerHTML = '<span style="color:var(--fg2)">No Gateway found</span>'; }, 2000);
         ws.onopen = () => {
           clearTimeout(t); ws.close();
           if (!found) {
@@ -227,7 +227,7 @@ function probeLAN(c) {
             result.innerHTML = `<span style="color:var(--success)">发现 Gateway: ${url}</span>`;
           }
         };
-        ws.onerror = () => { clearTimeout(t); if (++checked >= total && !found) result.innerHTML = '<span style="color:var(--fg2)">未发现 Gateway</span>'; };
+        ws.onerror = () => { clearTimeout(t); if (++checked >= total && !found) result.innerHTML = '<span style="color:var(--fg2)">No Gateway found</span>'; };
       } catch { checked++; }
     }
   }
@@ -304,7 +304,7 @@ async function installBun(c) {
     const status = await new Promise(r => cmd.on('close', r));
     if (status.code === 0) {
       env.bun = 'installed'; btn.textContent = '已安装';
-      window.__app.toast('Bun 安装成功', 'success');
+      window.__app.toast('Bun installed', 'success');
       const items = c.querySelectorAll('.check-item');
       const v = await runCmd('sh', ['-c', '$HOME/.bun/bin/bun --version']);
       if (v?.code === 0) { env.bun = v.stdout.trim(); setCheck(items[0], true, `v${env.bun}`); }
@@ -336,7 +336,7 @@ async function doInstall(c) {
     cmd.stderr.on('data', l => { log.textContent += l + '\n'; log.scrollTop = log.scrollHeight; });
     await cmd.spawn();
     const status = await new Promise(r => cmd.on('close', r));
-    if (status.code === 0) { env.openclaw = 'installed'; btn.textContent = '已安装'; window.__app.toast('OpenClaw 安装成功', 'success'); }
+    if (status.code === 0) { env.openclaw = 'installed'; btn.textContent = '已安装'; window.__app.toast('OpenClaw installed', 'success'); }
     else { btn.disabled = false; btn.textContent = '重试安装'; log.textContent += '\n❌ 安装失败 (exit ' + status.code + ')\n'; }
   } catch (e) { btn.disabled = false; btn.textContent = '重试安装'; log.textContent += '\n❌ ' + e.message + '\n'; }
 }

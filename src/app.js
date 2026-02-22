@@ -1,12 +1,13 @@
+import { t } from './i18n.js';
 import { icons } from './components/icons.js';
 import * as ws from './components/ws-client.js';
 
 const routes = { setup: './views/setup.js', dashboard: './views/dashboard.js', chat: './views/chat.js', agents: './views/agents.js', settings: './views/settings.js' };
 const navItems = [
-  { id: 'dashboard', icon: 'home', label: '仪表盘' },
-  { id: 'chat', icon: 'chat', label: '对话' },
+  { id: 'dashboard', icon: 'home', label: t('dash.title') },
+  { id: 'chat', icon: 'chat', label: t('chat.sessions') },
   { id: 'agents', icon: 'agents', label: 'Agents' },
-  { id: 'settings', icon: 'settings', label: '设置' },
+  { id: 'settings', icon: 'settings', label: t('settings.title') },
 ];
 
 const $nav = document.getElementById('nav');
@@ -52,7 +53,7 @@ async function navigate(route) {
     $content.innerHTML = `<div class="fade-in">${mod.render()}</div>`;
     if (mod.mount) mod.mount($content);
   } catch (e) {
-    $content.innerHTML = `<div class="fade-in"><p style="color:var(--danger)">加载失败: ${e.message}</p></div>`;
+    $content.innerHTML = `<div class="fade-in"><p style="color:var(--danger)">Load failed: ${e.message}</p></div>`;
   }
 }
 
@@ -82,9 +83,9 @@ function tryConnect() {
 
 // Events
 ws.on('status', connected => {
-  setGwStatus(connected ? 'on' : 'off', connected ? '已连接' : '已断开');
+  setGwStatus(connected ? 'on' : 'off', connected ? t('common.connected') : t('common.notConnected'));
   if (connected) {
-    toast('Gateway 已连接', 'success');
+    toast(t('common.connected'), 'success');
     ws.loadDashboardData();
     // Auto-refresh every 30s
     clearInterval(window.__refreshTimer);
@@ -133,12 +134,12 @@ async function checkUpdate(silent = true) {
     if (!updater) return;
     const update = await updater.check();
     if (update?.available) {
-      toast(`新版本 ${update.version} 可用`, 'info');
+      toast(`v${update.version} available`, 'info');
       window.__app._pendingUpdate = update;
     } else if (!silent) {
-      toast('已是最新版本', 'success');
+      toast(t('settings.upToDate') || 'Up to date', 'success');
     }
-  } catch (e) { if (!silent) toast('检查更新失败: ' + e.message, 'error'); }
+  } catch (e) { if (!silent) toast('Update check failed: ' + e.message, 'error'); }
 }
 window.__app.checkUpdate = checkUpdate;
 setTimeout(() => checkUpdate(), 5000);
@@ -156,7 +157,7 @@ window.__app.notify = notify;
 
 // Listen for events from Gateway
 ws.on('status', connected => {
-  if (!connected) notify('OpenClaw', '⚠️ Gateway 连接已断开');
+  if (!connected) notify('OpenClaw', '⚠️ Gateway disconnected');
 });
 ws.on('chat.message', payload => {
   if (document.hidden && payload?.text) notify('OpenClaw', payload.text.slice(0, 100));
