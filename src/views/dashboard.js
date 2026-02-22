@@ -69,18 +69,18 @@ function renderModels(models) {
 }
 
 function renderChannels(channels) {
-  if (!channels.length) return '<span style="color:var(--fg2);font-size:13px">${t('dash.noChannels')}</span>';
+  if (!channels.length) return `<span style="color:var(--fg2);font-size:13px">${t("dash.noChannels")}</span>`;
   return channels.map(ch => {
     const ok = ch.connected || ch.status === 'connected' || ch.status === 'ok';
     return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-      <span class="badge ${ok ? 'badge-success' : 'badge-danger'}">${ok ? '${t('common.online')}' : '${t('common.offline')}'}</span>
+      <span class="badge ${ok ? 'badge-success' : 'badge-danger'}">${ok ? t('common.online') : t('common.offline')}</span>
       <span style="font-size:13px">${ch.label || ch.id || ch.channel}</span>
     </div>`;
   }).join('');
 }
 
 function renderSessions(sessions) {
-  if (!sessions.length) return '<div class="glass-card" style="padding:14px;color:var(--fg2);font-size:13px">${t('dash.noSessions')}</div>';
+  if (!sessions.length) return `<div class="glass-card" style="padding:14px;color:var(--fg2);font-size:13px">${t("dash.noSessions")}</div>`;
   return sessions.slice(0, 10).map(s => {
     const label = s.displayName || s.origin?.label || s.sessionKey || '未知';
     const agent = s.agentId || '';

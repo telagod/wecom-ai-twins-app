@@ -19,7 +19,7 @@ export function render() {
 }
 
 function renderAgentCards() {
-  if (!agentsList.length) return '<div class="glass-card" style="color:var(--fg2);font-size:13px">${t('agents.none')}</div>';
+  if (!agentsList.length) return `<div class="glass-card" style="color:var(--fg2);font-size:13px">${t("agents.none")}</div>`;
   return agentsList.map(a => `<div class="glass-card" style="cursor:pointer" data-id="${a.id}">
     <div style="display:flex;justify-content:space-between;align-items:start">
       <div>
@@ -34,7 +34,7 @@ function renderAgentCards() {
 }
 
 function renderDetail() {
-  if (!selectedAgent) return '<div class="glass-card" style="color:var(--fg2);font-size:13px">${t('agents.detail')}</div>';
+  if (!selectedAgent) return `<div class="glass-card" style="color:var(--fg2);font-size:13px">${t("agents.detail")}</div>`;
   const a = selectedAgent;
   return `<div class="glass-card">
     <div style="font-size:16px;font-weight:600;margin-bottom:16px">${a.name || a.id}</div>
@@ -83,7 +83,7 @@ async function loadFiles(el, agentId) {
   try {
     const res = await ws.manage.agentFilesList(agentId);
     const files = res?.files || res?.entries || [];
-    if (!files.length) { $files.innerHTML = '<span style="color:var(--fg3);font-size:12px">${t('agents.noFiles')}</span>'; return; }
+    if (!files.length) { $files.innerHTML = `<span style="color:var(--fg3);font-size:12px">${t("agents.noFiles")}</span>`; return; }
     $files.innerHTML = files.map(f => `<div class="quick-cmd" style="margin-bottom:4px;display:inline-block" data-path="${f.path || f.name}">${f.path || f.name}</div>`).join(' ');
     $files.addEventListener('click', async e => {
       const btn = e.target.closest('[data-path]');
@@ -102,5 +102,5 @@ async function loadFiles(el, agentId) {
         };
       } catch {}
     });
-  } catch { $files.innerHTML = '<span style="color:var(--danger);font-size:12px">${t('agents.loadFail')}</span>'; }
+  } catch { $files.innerHTML = `<span style="color:var(--danger);font-size:12px">${t("agents.loadFail")}</span>`; }
 }

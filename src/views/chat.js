@@ -16,7 +16,7 @@ export function render() {
     </div>
     <div class="chat-main">
       <div style="padding:10px 20px;border-bottom:1px solid var(--glass-border);display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:13px;color:var(--fg2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0" id="chat-title">${activeSession || '${t('chat.select')}'}</span>
+        <span style="font-size:13px;color:var(--fg2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0" id="chat-title">${activeSession || t('chat.select')}</span>
         <div style="display:flex;gap:6px">
           <button class="btn-icon" title="${t("chat.abort")}" aria-label="${t("chat.abort")}" id="btn-abort">${icons.stop}</button>
           <button class="btn-icon" title="${t("chat.reset")}" aria-label="${t("chat.reset")}" id="btn-reset">${icons.x}</button>
@@ -39,7 +39,7 @@ export function render() {
 }
 
 function renderSessionList(sessions) {
-  if (!sessions.length) return '<div style="color:var(--fg3);font-size:12px">${t('chat.none')}</div>';
+  if (!sessions.length) return `<div style="color:var(--fg3);font-size:12px">${t("chat.none")}</div>`;
   return sessions.map(s => {
     const label = s.displayName || s.origin?.label || s.sessionKey || '未知';
     const active = s.sessionKey === activeSession;
@@ -92,7 +92,7 @@ export async function mount(el) {
   el.querySelector('#btn-reset')?.addEventListener('click', async () => {
     if (!activeSession) return;
     await ws.manage.sessionReset(activeSession).catch(() => {});
-    messages = []; $msgs.innerHTML = '<div class="msg msg-system">${t('chat.resetDone')}</div>';
+    messages = []; $msgs.innerHTML = `<div class="msg msg-system">${t("chat.resetDone")}</div>`;
   });
 
   // Session switch
