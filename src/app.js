@@ -2,11 +2,12 @@ import { t } from './i18n.js';
 import { icons } from './components/icons.js';
 import * as ws from './components/ws-client.js';
 
-const routes = { setup: './views/setup.js', dashboard: './views/dashboard.js', chat: './views/chat.js', agents: './views/agents.js', settings: './views/settings.js' };
+const routes = { setup: './views/setup.js', dashboard: './views/dashboard.js', chat: './views/chat.js', agents: './views/agents.js', logs: './views/logs.js', settings: './views/settings.js' };
 const navItems = [
   { id: 'dashboard', icon: 'home', label: t('dash.title') },
   { id: 'chat', icon: 'chat', label: t('chat.sessions') },
   { id: 'agents', icon: 'agents', label: 'Agents' },
+  { id: 'logs', icon: 'terminal', label: 'Logs' },
   { id: 'settings', icon: 'settings', label: t('settings.title') },
 ];
 
