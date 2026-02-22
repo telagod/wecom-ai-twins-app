@@ -11,7 +11,7 @@
     {
       "identifier": "shell:allow-execute",
       "allow": [
-        { "name": "binaries/bun", "sidecar": true, "args": true },
+        { "name": "sh", "cmd": "sh", "args": true, "sidecar": false },
         { "name": "bun", "cmd": "bun", "args": true, "sidecar": false },
         { "name": "node", "cmd": "node", "args": true, "sidecar": false },
         { "name": "openclaw", "cmd": "openclaw", "args": true, "sidecar": false }
@@ -20,7 +20,7 @@
     {
       "identifier": "shell:allow-spawn",
       "allow": [
-        { "name": "binaries/bun", "sidecar": true, "args": true },
+        { "name": "sh", "cmd": "sh", "args": true, "sidecar": false },
         { "name": "bun", "cmd": "bun", "args": true, "sidecar": false },
         { "name": "openclaw", "cmd": "openclaw", "args": true, "sidecar": false }
       ]

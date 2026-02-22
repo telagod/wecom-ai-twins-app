@@ -55,9 +55,6 @@ jobs:
 
       - run: npm ci
 
-      - name: Download Bun sidecar
-        run: bash scripts/download-bun.sh ${{ matrix.target }}
-
       - name: Build Tauri
         run: npx tauri build --target ${{ matrix.target }}
 

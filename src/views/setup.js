@@ -1,13 +1,6 @@
 import { icons } from '../components/icons.js';
 
 const Shell = () => window.__TAURI__?.shell;
-let hasSidecar = false;
-
-function bunCmd(args) {
-  return hasSidecar
-    ? Shell().Command.sidecar('binaries/bun', args)
-    : Shell().Command.create('bun', args);
-}
 
 const PROVIDERS = [
   { id: 'anthropic', name: 'Anthropic', api: 'anthropic-messages', placeholder: 'sk-ant-...' },
@@ -39,10 +32,7 @@ export function mount(el) {
   el.querySelector('#wiz-next').onclick = () => handleNext(el);
 }
 
-function refresh(el) {
-  el.querySelector('.fade-in').innerHTML = render();
-  mount(el);
-}
+function refresh(el) { el.querySelector('.fade-in').innerHTML = render(); mount(el); }
 
 function handleNext(el) {
   if (step === 0) {
@@ -57,9 +47,7 @@ function handleNext(el) {
   } else if (step === 3) {
     if (!env.gwRunning) { window.__app.toast('请先启动 Gateway', 'error'); return; }
     step = 4;
-  } else if (step === 4) {
-    window.__app.navigate('dashboard'); return;
-  }
+  } else { window.__app.navigate('dashboard'); return; }
   refresh(el);
 }
 
@@ -68,7 +56,11 @@ function renderStep(el) {
   [renderDetect, renderInstall, renderProvider, renderGateway, renderDone][step](c);
 }
 
-// ── Step 0: Environment Detection ──
+async function runCmd(program, args) {
+  try { return await Shell().Command.create(program, args).execute(); } catch { return null; }
+}
+
+// ── Step 0: Detect ──
 
 function renderDetect(c) {
   c.innerHTML = `<h3 style="margin-bottom:16px">环境检测</h3>
@@ -88,29 +80,59 @@ function setCheck(el, ok, detail) {
   el.querySelector('.check-detail').innerHTML = detail;
 }
 
-async function runCmd(program, args) {
-  try { return await Shell().Command.create(program, args).execute(); }
-  catch { return null; }
-}
-
 async function runDetect(c) {
   const items = c.querySelectorAll('.check-item');
 
-  // Try sidecar bun first, then system bun
-  let bunOut = null;
-  try { bunOut = await Shell().Command.sidecar('binaries/bun', ['--version']).execute(); hasSidecar = true; } catch {}
-  if (!bunOut || bunOut.code !== 0) { bunOut = await runCmd('bun', ['--version']); hasSidecar = false; }
+  // Check bun (system PATH + ~/.bun/bin)
+  let bunOut = await runCmd('bun', ['--version']);
+  if (!bunOut || bunOut.code !== 0) {
+    bunOut = await runCmd('sh', ['-c', '$HOME/.bun/bin/bun --version']);
+  }
+  if (bunOut?.code === 0) { env.bun = bunOut.stdout.trim(); setCheck(items[0], true, `v${env.bun}`); }
+  else { env.bun = null; setCheck(items[0], false, '未找到 — 点击下方「安装 Bun」或 <a href="https://bun.sh" target="_blank" style="color:var(--accent)">手动安装</a>'); addBunInstallBtn(c); }
 
-  if (bunOut?.code === 0) { env.bun = bunOut.stdout.trim(); setCheck(items[0], true, `v${env.bun}${hasSidecar ? ' (内置)' : ''}`); }
-  else { env.bun = null; setCheck(items[0], false, '未找到 — <a href="https://bun.sh" target="_blank" style="color:var(--accent)">安装 Bun</a>'); }
-
+  // Check openclaw
   const ocOut = await runCmd('openclaw', ['--version']);
   if (ocOut?.code === 0) { env.openclaw = ocOut.stdout.trim(); setCheck(items[1], true, env.openclaw); }
   else {
-    const ocBun = env.bun ? await (async () => { try { return await bunCmd(['openclaw', '--version']).execute(); } catch { return null; } })() : null;
+    const ocBun = env.bun ? await runCmd('sh', ['-c', 'bun openclaw --version 2>/dev/null || $HOME/.bun/bin/bun openclaw --version']) : null;
     if (ocBun?.code === 0) { env.openclaw = ocBun.stdout.trim(); setCheck(items[1], true, env.openclaw + ' (via bun)'); }
     else { env.openclaw = null; setCheck(items[1], false, '未安装 — 下一步将自动安装'); }
   }
+}
+
+function addBunInstallBtn(c) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'margin-top:12px';
+  wrap.innerHTML = `<button class="btn btn-primary btn-sm" id="btn-bun-install">安装 Bun</button>
+    <div class="terminal-box" id="bun-install-log" style="display:none;height:120px;overflow-y:auto;background:var(--bg1);border-radius:8px;padding:12px;font-family:monospace;font-size:12px;white-space:pre-wrap;margin-top:8px"></div>`;
+  c.appendChild(wrap);
+  wrap.querySelector('#btn-bun-install').onclick = () => installBun(c);
+}
+
+async function installBun(c) {
+  const btn = c.querySelector('#btn-bun-install');
+  const log = c.querySelector('#bun-install-log');
+  btn.disabled = true; btn.textContent = '安装中...';
+  log.style.display = ''; log.textContent = '$ curl -fsSL https://bun.sh/install | bash\n';
+
+  try {
+    const cmd = Shell().Command.create('sh', ['-c', 'curl -fsSL https://bun.sh/install | bash']);
+    cmd.stdout.on('data', l => { log.textContent += l + '\n'; log.scrollTop = log.scrollHeight; });
+    cmd.stderr.on('data', l => { log.textContent += l + '\n'; log.scrollTop = log.scrollHeight; });
+    await cmd.spawn();
+    const status = await new Promise(r => cmd.on('close', r));
+    if (status.code === 0) {
+      env.bun = 'installed';
+      log.textContent += '\n✅ Bun 安装完成\n';
+      btn.textContent = '已安装';
+      window.__app.toast('Bun 安装成功', 'success');
+      // Re-run detection
+      const items = c.querySelectorAll('.check-item');
+      const v = await runCmd('sh', ['-c', '$HOME/.bun/bin/bun --version']);
+      if (v?.code === 0) { env.bun = v.stdout.trim(); setCheck(items[0], true, `v${env.bun}`); }
+    } else { btn.disabled = false; btn.textContent = '重试'; log.textContent += '\n❌ 安装失败\n'; }
+  } catch (e) { btn.disabled = false; btn.textContent = '重试'; log.textContent += '\n❌ ' + e.message + '\n'; }
 }
 
 // ── Step 1: Install OpenClaw ──
@@ -127,7 +149,7 @@ async function doInstall(c) {
   btn.disabled = true; btn.textContent = '安装中...';
   log.textContent = '$ bun install -g openclaw\n';
   try {
-    const cmd = bunCmd(['install', '-g', 'openclaw']);
+    const cmd = Shell().Command.create('sh', ['-c', 'export PATH="$HOME/.bun/bin:$PATH" && bun install -g openclaw']);
     cmd.stdout.on('data', l => { log.textContent += l + '\n'; log.scrollTop = log.scrollHeight; });
     cmd.stderr.on('data', l => { log.textContent += l + '\n'; log.scrollTop = log.scrollHeight; });
     await cmd.spawn();
@@ -147,18 +169,13 @@ function renderProvider(c) {
       <div><label class="input-label">Provider</label><select class="input" id="prov-select">${opts}</select></div>
       <div id="prov-baseurl-wrap" style="display:none"><label class="input-label">Base URL</label><input class="input" id="prov-baseurl"></div>
       <div><label class="input-label">API Key</label><input class="input" id="prov-key" type="password" placeholder="${PROVIDERS[0].placeholder}"></div>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-primary btn-sm" id="btn-prov-save">保存配置</button>
         <button class="btn btn-secondary btn-sm" id="btn-prov-skip">跳过（已配置）</button>
       </div>
       <div id="prov-result" style="font-size:13px"></div>
     </div>`;
-
-  const sel = c.querySelector('#prov-select');
-  const urlWrap = c.querySelector('#prov-baseurl-wrap');
-  const urlInput = c.querySelector('#prov-baseurl');
-  const keyInput = c.querySelector('#prov-key');
-
+  const sel = c.querySelector('#prov-select'), urlWrap = c.querySelector('#prov-baseurl-wrap'), urlInput = c.querySelector('#prov-baseurl'), keyInput = c.querySelector('#prov-key');
   function onProvChange() {
     const p = PROVIDERS.find(x => x.id === sel.value);
     keyInput.placeholder = p.placeholder;
@@ -166,41 +183,27 @@ function renderProvider(c) {
     else if (p.baseUrl) { urlWrap.style.display = ''; urlInput.value = p.baseUrl; }
     else { urlWrap.style.display = 'none'; }
   }
-  sel.onchange = onProvChange;
-  onProvChange();
-
+  sel.onchange = onProvChange; onProvChange();
   c.querySelector('#btn-prov-save').onclick = () => saveProvider(c);
   c.querySelector('#btn-prov-skip').onclick = () => { env.providerOk = true; window.__app.toast('跳过 — 使用已有配置', 'info'); };
 }
 
 async function saveProvider(c) {
-  const sel = c.querySelector('#prov-select');
-  const key = c.querySelector('#prov-key').value.trim();
-  const baseUrl = c.querySelector('#prov-baseurl')?.value.trim();
-  const result = c.querySelector('#prov-result');
+  const sel = c.querySelector('#prov-select'), key = c.querySelector('#prov-key').value.trim();
+  const baseUrl = c.querySelector('#prov-baseurl')?.value.trim(), result = c.querySelector('#prov-result');
   const p = PROVIDERS.find(x => x.id === sel.value);
-
   if (!key) { result.innerHTML = '<span style="color:var(--danger)">请输入 API Key</span>'; return; }
-
-  const provId = p.id === 'custom' ? 'custom' : p.id;
   result.innerHTML = '<span style="color:var(--warn)">保存中...</span>';
-
+  const provId = p.id === 'custom' ? 'custom' : p.id;
   const cmds = [
     ['models.providers.' + provId + '.apiKey', key],
     ['models.providers.' + provId + '.api', p.api],
   ];
   if (baseUrl) cmds.push(['models.providers.' + provId + '.baseUrl', baseUrl]);
-
   for (const [path, val] of cmds) {
-    const r = env.bun
-      ? await (async () => { try { return await bunCmd(['openclaw', 'config', 'set', path, val]).execute(); } catch { return null; } })()
-      : await runCmd('openclaw', ['config', 'set', path, val]);
-    if (r?.code !== 0) {
-      result.innerHTML = `<span style="color:var(--danger)">配置失败: ${r?.stderr || 'unknown error'}</span>`;
-      return;
-    }
+    const r = await runCmd('sh', ['-c', `export PATH="$HOME/.bun/bin:$PATH" && openclaw config set '${path}' '${val}'`]);
+    if (r?.code !== 0) { result.innerHTML = `<span style="color:var(--danger)">配置失败</span>`; return; }
   }
-
   env.providerOk = true;
   result.innerHTML = '<span style="color:var(--success)">✅ 已保存</span>';
   window.__app.toast(`${p.name} 配置成功`, 'success');
@@ -225,7 +228,7 @@ async function startGateway(c) {
   btn.disabled = true; btn.textContent = '启动中...';
   log.textContent = '$ openclaw gateway\n';
   try {
-    const cmd = env.bun ? bunCmd(['openclaw', 'gateway']) : Shell().Command.create('openclaw', ['gateway']);
+    const cmd = Shell().Command.create('sh', ['-c', 'export PATH="$HOME/.bun/bin:$PATH" && openclaw gateway']);
     cmd.stdout.on('data', line => {
       log.textContent += line + '\n'; log.scrollTop = log.scrollHeight;
       if (line.includes('Gateway') && (line.includes('listening') || line.includes('ready') || line.includes('started'))) onGatewayReady(c);
