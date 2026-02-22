@@ -6,6 +6,8 @@
   "permissions": [
     "core:default",
     "opener:default",
+    "updater:default",
+    "notification:default",
     "shell:allow-kill",
     "shell:allow-stdin-write",
     {

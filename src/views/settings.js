@@ -40,7 +40,18 @@ function renderConfig() {
 }
 
 function renderAdvanced(s) {
+  const ver = '0.5.5';
+  const hasUpdate = window.__app._pendingUpdate;
   return `<div class="fade-in">
+    <div class="glass-card" style="margin-bottom:16px">
+      <div class="card-title">关于</div>
+      <div style="font-size:14px;font-weight:500">OpenClaw Desktop v${ver}</div>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-secondary btn-sm" id="s-check-update">检查更新</button>
+        ${hasUpdate ? `<button class="btn btn-primary btn-sm" id="s-do-update">更新到 ${hasUpdate.version}</button>` : ''}
+      </div>
+      <div id="s-update-status" style="font-size:12px;margin-top:8px"></div>
+    </div>
     <p style="color:var(--fg2);font-size:13px;margin-bottom:12px">本地客户端设置（localStorage）</p>
     <textarea class="json-editor" id="s-local">${JSON.stringify(s, null, 2)}</textarea>
     <button class="btn btn-primary btn-sm" id="s-save-local" style="margin-top:8px">保存</button>
@@ -99,6 +110,21 @@ function bindConfig(el) {
 }
 
 function bindAdvanced(el) {
+  el.querySelector('#s-check-update')?.addEventListener('click', async () => {
+    const status = el.querySelector('#s-update-status');
+    status.innerHTML = '<span style="color:var(--warn)">检查中...</span>';
+    await window.__app.checkUpdate(false);
+    const u = window.__app._pendingUpdate;
+    status.innerHTML = u ? `<span style="color:var(--success)">发现新版本 ${u.version}</span>` : '<span style="color:var(--fg2)">已是最新</span>';
+  });
+  el.querySelector('#s-do-update')?.addEventListener('click', async () => {
+    const u = window.__app._pendingUpdate;
+    if (!u) return;
+    const status = el.querySelector('#s-update-status');
+    status.innerHTML = '<span style="color:var(--warn)">下载更新中...</span>';
+    try { await u.downloadAndInstall(); status.innerHTML = '<span style="color:var(--success)">更新完成，重启生效</span>'; }
+    catch (e) { status.innerHTML = `<span style="color:var(--danger)">更新失败: ${e.message}</span>`; }
+  });
   el.querySelector('#s-save-local')?.addEventListener('click', () => {
     try { window.__app.ws.saveSettings(JSON.parse(el.querySelector('#s-local').value)); window.__app.toast('已保存', 'success'); }
     catch { window.__app.toast('JSON 格式错误', 'error'); }

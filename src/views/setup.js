@@ -1,4 +1,5 @@
 import { icons } from '../components/icons.js';
+import { t } from '../i18n.js';
 
 const Shell = () => window.__TAURI__?.shell;
 const isMobile = /android|iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -11,8 +12,8 @@ const PROVIDERS = [
   { id: 'custom', name: '自定义 (OpenAI 兼容)', api: 'openai-chat', placeholder: 'API Key' },
 ];
 
-const desktopSteps = ['环境检测', '安装 OpenClaw', '配置 Provider', '启动 Gateway', '完成'];
-const mobileSteps = ['连接 Gateway', '完成'];
+const desktopSteps = [t('setup.step.detect'), t('setup.step.install'), t('setup.step.provider'), t('setup.step.gateway'), t('setup.step.done')];
+const mobileSteps = [t('setup.step.connect'), t('setup.step.done')];
 const steps = isMobile ? mobileSteps : desktopSteps;
 const lastStep = steps.length - 1;
 
@@ -22,14 +23,14 @@ let child = null;
 export function getChild() { return child; }
 
 export function render() {
-  const title = isMobile ? '连接 OpenClaw' : '快速部署 OpenClaw';
-  const sub = isMobile ? '连接远程 Gateway' : '一键安装，本地运行';
+  const title = isMobile ? t('setup.title.mobile') : t('setup.title.desktop');
+  const sub = isMobile ? t('setup.sub.mobile') : t('setup.sub.desktop');
   return `<div class="page-header"><h1>${title}</h1><p>${sub}</p></div>
     <div class="wizard-steps">${steps.map((s, i) => `<div class="wizard-step ${i < step ? 'done' : i === step ? 'active' : ''}" title="${s}"></div>`).join('')}</div>
     <div class="wizard-content glass-card" id="wiz-content"></div>
     <div class="wizard-actions">
-      <button class="btn btn-secondary" id="wiz-prev" style="visibility:${step > 0 && step < lastStep ? 'visible' : 'hidden'}">上一步</button>
-      <button class="btn btn-primary" id="wiz-next">${step === lastStep ? '进入仪表盘' : '下一步'}</button>
+      <button class="btn btn-secondary" id="wiz-prev" style="visibility:${step > 0 && step < lastStep ? 'visible' : 'hidden'}">${t('setup.prev')}</button>
+      <button class="btn btn-primary" id="wiz-next">${step === lastStep ? t('setup.enter') : t('setup.next')}</button>
     </div>`;
 }
 
@@ -95,12 +96,20 @@ function renderMobileConnect(c) {
       <div><label class="input-label">Auth Token</label><input class="input" id="m-token" type="password" value="${s.token || ''}" placeholder="Gateway 认证 Token"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-primary btn-sm" id="m-test">测试连接</button>
+        <button class="btn btn-secondary btn-sm" id="m-scan">📷 扫码连接</button>
         <button class="btn btn-secondary btn-sm" id="m-probe">局域网探测</button>
+      </div>
+      <div id="m-scanner" style="display:none;position:relative;border-radius:8px;overflow:hidden">
+        <video id="m-video" style="width:100%;border-radius:8px" playsinline></video>
+        <canvas id="m-canvas" style="display:none"></canvas>
+        <button class="btn btn-sm" id="m-scan-close" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.6);color:#fff">✕</button>
       </div>
       <div id="m-result" style="font-size:13px"></div>
     </div>`;
   c.querySelector('#m-test').onclick = () => testMobileConnect(c);
   c.querySelector('#m-probe').onclick = () => probeLAN(c);
+  c.querySelector('#m-scan').onclick = () => startQRScan(c);
+  c.querySelector('#m-scan-close').onclick = () => stopQRScan(c);
 }
 
 async function testMobileConnect(c) {
@@ -120,6 +129,80 @@ async function testMobileConnect(c) {
   } catch {
     result.innerHTML = '<span style="color:var(--danger)">连接失败 — 请检查地址和网络</span>';
   }
+}
+
+let qrStream = null, qrTimer = null;
+
+async function startQRScan(c) {
+  const scanner = c.querySelector('#m-scanner');
+  const video = c.querySelector('#m-video');
+  const canvas = c.querySelector('#m-canvas');
+  const result = c.querySelector('#m-result');
+  scanner.style.display = '';
+  result.innerHTML = '<span style="color:var(--warn)">对准二维码...</span>';
+
+  // Load jsQR from CDN if not loaded
+  if (!window.jsQR) {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';
+    await new Promise((ok, fail) => { s.onload = ok; s.onerror = fail; document.head.appendChild(s); });
+  }
+
+  try {
+    qrStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    video.srcObject = qrStream;
+    await video.play();
+    const ctx = canvas.getContext('2d');
+
+    qrTimer = setInterval(() => {
+      if (video.readyState < 2) return;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
+      const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = window.jsQR(img.data, img.width, img.height);
+      if (code?.data) {
+        stopQRScan(c);
+        parseQR(c, code.data);
+      }
+    }, 300);
+  } catch (e) {
+    stopQRScan(c);
+    result.innerHTML = `<span style="color:var(--danger)">摄像头访问失败: ${e.message}</span>`;
+  }
+}
+
+function stopQRScan(c) {
+  if (qrTimer) { clearInterval(qrTimer); qrTimer = null; }
+  if (qrStream) { qrStream.getTracks().forEach(t => t.stop()); qrStream = null; }
+  const scanner = c.querySelector('#m-scanner');
+  if (scanner) scanner.style.display = 'none';
+}
+
+function parseQR(c, data) {
+  const result = c.querySelector('#m-result');
+  try {
+    // Format: openclaw://connect?url=ws://...&token=...
+    // Or plain JSON: {"url":"ws://...","token":"..."}
+    let url, token;
+    if (data.startsWith('openclaw://')) {
+      const params = new URL(data.replace('openclaw://', 'https://')).searchParams;
+      url = params.get('url'); token = params.get('token');
+    } else if (data.startsWith('{')) {
+      const obj = JSON.parse(data);
+      url = obj.url; token = obj.token;
+    } else if (data.startsWith('ws')) {
+      url = data;
+    }
+    if (url) {
+      c.querySelector('#m-url').value = url;
+      if (token) c.querySelector('#m-token').value = token;
+      result.innerHTML = `<span style="color:var(--success)">✅ 已识别: ${url}</span>`;
+      window.__app.toast('二维码识别成功', 'success');
+    } else {
+      result.innerHTML = '<span style="color:var(--danger)">无法识别二维码内容</span>';
+    }
+  } catch { result.innerHTML = '<span style="color:var(--danger)">二维码格式错误</span>'; }
 }
 
 function probeLAN(c) {

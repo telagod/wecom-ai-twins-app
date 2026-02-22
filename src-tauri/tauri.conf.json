@@ -1,10 +1,16 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "OpenClaw Desktop",
-  "version": "0.5.1",
+  "version": "0.5.5",
   "identifier": "com.telagod.wecom-ai-twins",
   "build": {
     "frontendDist": "../src"
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": ["https://github.com/telagod/OpenClaw-app/releases/latest/download/latest.json"],
+      "pubkey": ""
+    }
   },
   "app": {
     "withGlobalTauri": true,
@@ -20,7 +26,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' ws: wss:; style-src 'self' 'unsafe-inline'"
+      "csp": "default-src 'self'; connect-src 'self' ws: wss: https:; style-src 'self' 'unsafe-inline'; script-src 'self' https://cdn.jsdelivr.net; media-src 'self' mediastream:"
     }
   },
   "bundle": {

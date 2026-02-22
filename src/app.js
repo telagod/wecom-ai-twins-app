@@ -125,3 +125,39 @@ window.addEventListener('beforeunload', async () => {
     if (child) await child.kill();
   } catch {}
 });
+
+// Auto-update check
+async function checkUpdate(silent = true) {
+  try {
+    const updater = window.__TAURI__?.updater;
+    if (!updater) return;
+    const update = await updater.check();
+    if (update?.available) {
+      toast(`新版本 ${update.version} 可用`, 'info');
+      window.__app._pendingUpdate = update;
+    } else if (!silent) {
+      toast('已是最新版本', 'success');
+    }
+  } catch (e) { if (!silent) toast('检查更新失败: ' + e.message, 'error'); }
+}
+window.__app.checkUpdate = checkUpdate;
+setTimeout(() => checkUpdate(), 5000);
+
+// Notifications
+async function notify(title, body) {
+  try {
+    const n = window.__TAURI__?.notification;
+    if (n) { await n.sendNotification({ title, body }); return; }
+    if (Notification.permission === 'granted') new Notification(title, { body });
+    else if (Notification.permission !== 'denied') { const p = await Notification.requestPermission(); if (p === 'granted') new Notification(title, { body }); }
+  } catch {}
+}
+window.__app.notify = notify;
+
+// Listen for events from Gateway
+ws.on('status', connected => {
+  if (!connected) notify('OpenClaw', '⚠️ Gateway 连接已断开');
+});
+ws.on('chat.message', payload => {
+  if (document.hidden && payload?.text) notify('OpenClaw', payload.text.slice(0, 100));
+});
