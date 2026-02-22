@@ -43,7 +43,7 @@ function renderConfig() {
 }
 
 function renderAdvanced(s) {
-  const ver = '0.6.5';
+  const ver = '0.6.6';
   const hasUpdate = window.__app._pendingUpdate;
   return `<div class="fade-in">
     <div class="glass-card" style="margin-bottom:16px">
