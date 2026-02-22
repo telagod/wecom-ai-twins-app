@@ -1,6 +1,13 @@
 import { icons } from '../components/icons.js';
 
 const Shell = () => window.__TAURI__?.shell;
+let hasSidecar = false;
+
+function bunCmd(args) {
+  return hasSidecar
+    ? Shell().Command.sidecar('binaries/bun', args)
+    : Shell().Command.create('bun', args);
+}
 
 const PROVIDERS = [
   { id: 'anthropic', name: 'Anthropic', api: 'anthropic-messages', placeholder: 'sk-ant-...' },
@@ -88,14 +95,19 @@ async function runCmd(program, args) {
 
 async function runDetect(c) {
   const items = c.querySelectorAll('.check-item');
-  const bunOut = await runCmd('bun', ['--version']);
-  if (bunOut?.code === 0) { env.bun = bunOut.stdout.trim(); setCheck(items[0], true, `v${env.bun}`); }
+
+  // Try sidecar bun first, then system bun
+  let bunOut = null;
+  try { bunOut = await Shell().Command.sidecar('binaries/bun', ['--version']).execute(); hasSidecar = true; } catch {}
+  if (!bunOut || bunOut.code !== 0) { bunOut = await runCmd('bun', ['--version']); hasSidecar = false; }
+
+  if (bunOut?.code === 0) { env.bun = bunOut.stdout.trim(); setCheck(items[0], true, `v${env.bun}${hasSidecar ? ' (内置)' : ''}`); }
   else { env.bun = null; setCheck(items[0], false, '未找到 — <a href="https://bun.sh" target="_blank" style="color:var(--accent)">安装 Bun</a>'); }
 
   const ocOut = await runCmd('openclaw', ['--version']);
   if (ocOut?.code === 0) { env.openclaw = ocOut.stdout.trim(); setCheck(items[1], true, env.openclaw); }
   else {
-    const ocBun = env.bun ? await runCmd('bun', ['openclaw', '--version']) : null;
+    const ocBun = env.bun ? await (async () => { try { return await bunCmd(['openclaw', '--version']).execute(); } catch { return null; } })() : null;
     if (ocBun?.code === 0) { env.openclaw = ocBun.stdout.trim(); setCheck(items[1], true, env.openclaw + ' (via bun)'); }
     else { env.openclaw = null; setCheck(items[1], false, '未安装 — 下一步将自动安装'); }
   }
@@ -115,7 +127,7 @@ async function doInstall(c) {
   btn.disabled = true; btn.textContent = '安装中...';
   log.textContent = '$ bun install -g openclaw\n';
   try {
-    const cmd = Shell().Command.create('bun', ['install', '-g', 'openclaw']);
+    const cmd = bunCmd(['install', '-g', 'openclaw']);
     cmd.stdout.on('data', l => { log.textContent += l + '\n'; log.scrollTop = log.scrollHeight; });
     cmd.stderr.on('data', l => { log.textContent += l + '\n'; log.scrollTop = log.scrollHeight; });
     await cmd.spawn();
@@ -180,7 +192,9 @@ async function saveProvider(c) {
   if (baseUrl) cmds.push(['models.providers.' + provId + '.baseUrl', baseUrl]);
 
   for (const [path, val] of cmds) {
-    const r = await runCmd('openclaw', ['config', 'set', path, val]);
+    const r = env.bun
+      ? await (async () => { try { return await bunCmd(['openclaw', 'config', 'set', path, val]).execute(); } catch { return null; } })()
+      : await runCmd('openclaw', ['config', 'set', path, val]);
     if (r?.code !== 0) {
       result.innerHTML = `<span style="color:var(--danger)">配置失败: ${r?.stderr || 'unknown error'}</span>`;
       return;
@@ -211,9 +225,7 @@ async function startGateway(c) {
   btn.disabled = true; btn.textContent = '启动中...';
   log.textContent = '$ openclaw gateway\n';
   try {
-    const program = env.bun ? 'bun' : 'openclaw';
-    const args = env.bun ? ['openclaw', 'gateway'] : ['gateway'];
-    const cmd = Shell().Command.create(program, args);
+    const cmd = env.bun ? bunCmd(['openclaw', 'gateway']) : Shell().Command.create('openclaw', ['gateway']);
     cmd.stdout.on('data', line => {
       log.textContent += line + '\n'; log.scrollTop = log.scrollHeight;
       if (line.includes('Gateway') && (line.includes('listening') || line.includes('ready') || line.includes('started'))) onGatewayReady(c);

@@ -51,9 +51,12 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libfuse2
 
       - run: npm ci
+
+      - name: Download Bun sidecar
+        run: bash scripts/download-bun.sh ${{ matrix.target }}
 
       - name: Build Tauri
         run: npx tauri build --target ${{ matrix.target }}

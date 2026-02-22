@@ -63,7 +63,7 @@ function sendHandshake(nonce) {
     type: "req", id: String(++reqId), method: "connect",
     params: {
       minProtocol: 3, maxProtocol: 3,
-      client: { id: "openclaw-desktop", version: "0.2.0", platform: navigator.platform, mode: "operator" },
+      client: { id: "openclaw-desktop", version: "0.5.1", platform: navigator.platform, mode: "operator" },
       role: "operator", scopes: ["operator.read", "operator.write", "operator.admin"],
       caps: [], commands: [], permissions: {},
       auth: { token, deviceToken: state.settings.deviceToken },
