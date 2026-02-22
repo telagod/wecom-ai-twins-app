@@ -109,3 +109,12 @@ window.addEventListener('hashchange', () => navigate(location.hash.slice(1)));
 tryConnect();
 
 window.__app = { ws, setGwStatus, tryConnect, navigate, toast };
+
+// Kill gateway child process on app exit
+window.addEventListener('beforeunload', async () => {
+  try {
+    const setup = await import('./views/setup.js');
+    const child = setup.getChild();
+    if (child) await child.kill();
+  } catch {}
+});

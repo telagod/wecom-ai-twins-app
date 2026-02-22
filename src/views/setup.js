@@ -14,6 +14,7 @@ const steps = ['环境检测', '安装 OpenClaw', '配置 Provider', '启动 Gat
 let step = 0;
 let env = { bun: null, openclaw: null, providerOk: false, gwRunning: false };
 let child = null;
+export function getChild() { return child; }
 
 export function render() {
   return `<div class="page-header"><h1>快速部署 OpenClaw</h1><p>一键安装，本地运行</p></div>
