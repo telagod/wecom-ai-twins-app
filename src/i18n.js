@@ -140,6 +140,13 @@ const langs = {
     'common.loading': '加载中...',
     'common.connected': '已连接',
     'common.notConnected': '未连接',
+    'settings.checkUpdate': '检查更新',
+    'settings.updateTo': '更新到',
+    'settings.upToDate': '已是最新',
+    'settings.newVersion': '发现新版本',
+    'settings.loadFail': '加载失败',
+    'settings.lang': '语言',
+    'settings.langAuto': '跟随系统',
   },
   en: {
     'setup.title.desktop': 'Deploy OpenClaw',
@@ -276,6 +283,13 @@ const langs = {
     'common.loading': 'Loading...',
     'common.connected': 'Connected',
     'common.notConnected': 'Not connected',
+    'settings.checkUpdate': 'Check for updates',
+    'settings.updateTo': 'Update to',
+    'settings.upToDate': 'Up to date',
+    'settings.newVersion': 'New version',
+    'settings.loadFail': 'Load failed',
+    'settings.lang': 'Language',
+    'settings.langAuto': 'System default',
   }
 };
 
@@ -290,6 +304,8 @@ export function t(key, ...args) {
   return s;
 }
 
-// Auto-detect language
+// Auto-detect language, respect saved preference
+const saved = localStorage.getItem('openclaw-lang');
 const nav = navigator.language || 'zh';
-setLang(nav.startsWith('zh') ? 'zh' : 'en');
+if (saved && saved !== 'auto') setLang(saved);
+else setLang(nav.startsWith('zh') ? 'zh' : 'en');

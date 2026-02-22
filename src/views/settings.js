@@ -1,4 +1,5 @@
 import { t } from '../i18n.js';
+import { setLang, getLang } from '../i18n.js';
 
 export function render() {
   const s = window.__app.ws.state.settings;
@@ -42,7 +43,7 @@ function renderConfig() {
 }
 
 function renderAdvanced(s) {
-  const ver = '0.6.4';
+  const ver = '0.6.5';
   const hasUpdate = window.__app._pendingUpdate;
   return `<div class="fade-in">
     <div class="glass-card" style="margin-bottom:16px">
@@ -53,6 +54,14 @@ function renderAdvanced(s) {
         ${hasUpdate ? `<button class="btn btn-primary btn-sm" id="s-do-update">${t("settings.updateTo") || "Update to "} ${hasUpdate.version}</button>` : ''}
       </div>
       <div id="s-update-status" style="font-size:12px;margin-top:8px"></div>
+    </div>
+    <div class="glass-card" style="margin-bottom:16px">
+      <div class="card-title">${t("settings.lang")}</div>
+      <select class="input" id="s-lang" style="max-width:200px">
+        <option value="auto" ${getLang() === (navigator.language?.startsWith('zh') ? 'zh' : 'en') ? 'selected' : ''}>${t("settings.langAuto")}</option>
+        <option value="zh" ${getLang() === 'zh' ? '' : ''}>中文</option>
+        <option value="en" ${getLang() === 'en' ? '' : ''}>English</option>
+      </select>
     </div>
     <p style="color:var(--fg2);font-size:13px;margin-bottom:12px">${t("settings.localSettings")}</p>
     <textarea class="json-editor" id="s-local">${JSON.stringify(s, null, 2)}</textarea>
@@ -112,6 +121,13 @@ function bindConfig(el) {
 }
 
 function bindAdvanced(el) {
+  el.querySelector('#s-lang')?.addEventListener('change', (e) => {
+    const v = e.target.value;
+    if (v === 'auto') { setLang(navigator.language?.startsWith('zh') ? 'zh' : 'en'); }
+    else { setLang(v); }
+    localStorage.setItem('openclaw-lang', v);
+    window.__app.navigate(window.__app.currentRoute || 'settings');
+  });
   el.querySelector('#s-check-update')?.addEventListener('click', async () => {
     const status = el.querySelector('#s-update-status');
     status.innerHTML = '<span style="color:var(--warn)">${t("common.loading")}</span>';
