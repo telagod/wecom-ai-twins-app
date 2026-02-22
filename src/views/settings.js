@@ -1,6 +1,7 @@
 export function render() {
+import { t } from '../i18n.js';
   const s = window.__app.ws.state.settings;
-  return `<div class="page-header"><h1>设置</h1><p>Gateway 连接与配置管理</p></div>
+  return `<div class="page-header"><h1>${t('settings.title')}</h1><p>${t('settings.sub')}</p></div>
     <div class="tabs">
       <button class="tab active" data-tab="gateway">Gateway</button>
       <button class="tab" data-tab="models">模型</button>
@@ -14,7 +15,7 @@ function renderGateway(s) {
   return `<div class="settings-section fade-in">
     <div><label class="input-label">Gateway URL</label><input class="input" id="s-url" value="${s.url || 'ws://127.0.0.1:18789'}"></div>
     <div><label class="input-label">Auth Token</label><input class="input" id="s-token" type="password" value="${s.token || ''}"></div>
-    <button class="btn btn-primary" id="s-save-gw">保存并重连</button>
+    <button class="btn btn-primary" id="s-save-gw">${t("settings.saveReconnect")}</button>
   </div>`;
 }
 
@@ -40,7 +41,7 @@ function renderConfig() {
 }
 
 function renderAdvanced(s) {
-  const ver = '0.5.5';
+  const ver = '0.6.1';
   const hasUpdate = window.__app._pendingUpdate;
   return `<div class="fade-in">
     <div class="glass-card" style="margin-bottom:16px">

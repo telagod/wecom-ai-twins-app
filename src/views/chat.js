@@ -1,4 +1,5 @@
 import { icons } from '../components/icons.js';
+import { t } from '../i18n.js';
 
 let messages = [], streamEl = null, streamText = '', activeSession = null;
 
@@ -15,7 +16,7 @@ export function render() {
     </div>
     <div class="chat-main">
       <div style="padding:10px 20px;border-bottom:1px solid var(--glass-border);display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:13px;color:var(--fg2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0" id="chat-title">${activeSession || '选择会话'}</span>
+        <span style="font-size:13px;color:var(--fg2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0" id="chat-title">${activeSession || '${t('chat.select')}'}</span>
         <div style="display:flex;gap:6px">
           <button class="btn-icon" title="中止回复" aria-label="中止回复" id="btn-abort">${icons.stop}</button>
           <button class="btn-icon" title="重置会话" aria-label="重置会话" id="btn-reset">${icons.x}</button>
@@ -24,12 +25,12 @@ export function render() {
       <div class="chat-messages" id="chat-msgs"></div>
       <div class="chat-input-area">
         <div class="quick-cmds">
-          <button class="quick-cmd" data-cmd="/new">新会话</button>
-          <button class="quick-cmd" data-cmd="/status">状态</button>
-          <button class="quick-cmd" data-cmd="/compact">压缩</button>
+          <button class="quick-cmd" data-cmd="/new">${t('chat.newSession')}</button>
+          <button class="quick-cmd" data-cmd="/status">${t('chat.status')}</button>
+          <button class="quick-cmd" data-cmd="/compact">${t('chat.compact')}</button>
         </div>
         <form class="chat-form" id="chat-form">
-          <textarea class="input" id="chat-input" placeholder="输入消息..." rows="1" aria-label="消息输入"></textarea>
+          <textarea class="input" id="chat-input" placeholder="${t('chat.input')}" rows="1" aria-label="消息输入"></textarea>
           <button type="submit" class="btn btn-primary" aria-label="发送">${icons.send}</button>
         </form>
       </div>
@@ -38,7 +39,7 @@ export function render() {
 }
 
 function renderSessionList(sessions) {
-  if (!sessions.length) return '<div style="color:var(--fg3);font-size:12px">暂无</div>';
+  if (!sessions.length) return '<div style="color:var(--fg3);font-size:12px">${t('chat.none')}</div>';
   return sessions.map(s => {
     const label = s.displayName || s.origin?.label || s.sessionKey || '未知';
     const active = s.sessionKey === activeSession;
@@ -91,7 +92,7 @@ export async function mount(el) {
   el.querySelector('#btn-reset')?.addEventListener('click', async () => {
     if (!activeSession) return;
     await ws.manage.sessionReset(activeSession).catch(() => {});
-    messages = []; $msgs.innerHTML = '<div class="msg msg-system">会话已重置</div>';
+    messages = []; $msgs.innerHTML = '<div class="msg msg-system">${t('chat.resetDone')}</div>';
   });
 
   // Session switch

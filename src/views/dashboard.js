@@ -1,4 +1,5 @@
 import { icons } from '../components/icons.js';
+import { t } from '../i18n.js';
 
 export function render() {
   const { ws } = window.__app;
@@ -6,13 +7,13 @@ export function render() {
   const s = ws.state;
   const d = s._dashboard || {};
 
-  return `<div class="page-header"><h1>仪表盘</h1><p>OpenClaw Gateway 概览</p></div>
+  return `<div class="page-header"><h1>${t('dash.title')}</h1><p>${t('dash.sub')}</p></div>
     <div class="card-grid">
       <div class="glass-card">
-        <div class="card-title">Gateway</div>
+        <div class="card-title">${t('dash.gateway')}</div>
         <div style="display:flex;align-items:center;gap:12px">
           <div class="status-dot ${connected ? 'on' : 'off'}" style="width:12px;height:12px"></div>
-          <div class="card-value" style="font-size:20px">${connected ? '运行中' : '未连接'}</div>
+          <div class="card-value" style="font-size:20px">${connected ? t('dash.running') : t('dash.disconnected')}</div>
         </div>
         <div class="card-sub">${s.settings.url || '—'}</div>
         ${d.version ? `<div class="card-sub">v${d.version}${d.uptime ? ' · 运行 ' + fmtUptime(d.uptime) : ''}</div>` : ''}
@@ -23,27 +24,27 @@ export function render() {
         </div>
       </div>
       <div class="glass-card">
-        <div class="card-title">会话统计</div>
+        <div class="card-title">${t('dash.sessions')}</div>
         <div class="card-value">${s.sessions.length}</div>
-        <div class="card-sub">活跃会话</div>
+        <div class="card-sub">${t('dash.activeSessions')}</div>
         ${d.tokenTotal ? `<div class="card-sub" style="margin-top:6px">累计 ${fmtNum(d.tokenTotal)} tokens</div>` : ''}
       </div>
       <div class="glass-card">
-        <div class="card-title">Agents (${s.agents.length})</div>
+        <div class="card-title">${t('dash.agents')} (${s.agents.length})</div>
         <div id="agent-list">${renderAgents(s.agents)}</div>
       </div>
       <div class="glass-card">
-        <div class="card-title">模型</div>
+        <div class="card-title">${t('dash.models')}</div>
         <div id="model-list">${renderModels(s.models)}</div>
       </div>
       <div class="glass-card">
-        <div class="card-title">渠道</div>
+        <div class="card-title">${t('dash.channels')}</div>
         <div id="ch-list">${renderChannels(s.channels)}</div>
       </div>
     </div>
     <div style="margin-top:24px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div class="card-title" style="margin:0">最近会话</div>
+        <div class="card-title" style="margin:0">${t('dash.recentSessions')}</div>
         <button class="btn btn-secondary btn-sm" id="refresh-btn">${icons.loader} 刷新</button>
       </div>
       <div id="sessions-list">${renderSessions(s.sessions)}</div>
@@ -68,7 +69,7 @@ function renderModels(models) {
 }
 
 function renderChannels(channels) {
-  if (!channels.length) return '<span style="color:var(--fg2);font-size:13px">无渠道</span>';
+  if (!channels.length) return '<span style="color:var(--fg2);font-size:13px">${t('dash.noChannels')}</span>';
   return channels.map(ch => {
     const ok = ch.connected || ch.status === 'connected' || ch.status === 'ok';
     return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
@@ -79,7 +80,7 @@ function renderChannels(channels) {
 }
 
 function renderSessions(sessions) {
-  if (!sessions.length) return '<div class="glass-card" style="padding:14px;color:var(--fg2);font-size:13px">暂无会话</div>';
+  if (!sessions.length) return '<div class="glass-card" style="padding:14px;color:var(--fg2);font-size:13px">${t('dash.noSessions')}</div>';
   return sessions.slice(0, 10).map(s => {
     const label = s.displayName || s.origin?.label || s.sessionKey || '未知';
     const agent = s.agentId || '';

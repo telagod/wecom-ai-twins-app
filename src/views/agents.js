@@ -1,14 +1,15 @@
 import { icons } from '../components/icons.js';
+import { t } from '../i18n.js';
 
 let agentsList = [], selectedAgent = null;
 
 export function render() {
   agentsList = window.__app.ws.state.agents;
-  return `<div class="page-header"><h1>Agents</h1><p>管理 AI Agent 实例</p></div>
+  return `<div class="page-header"><h1>${t('agents.title')}</h1><p>${t('agents.sub')}</p></div>
     <div class="agents-layout">
       <div class="agents-list">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-          <div class="card-title" style="margin:0">Agent 列表 (${agentsList.length})</div>
+          <div class="card-title" style="margin:0">${t('agents.list')} (${agentsList.length})</div>
           <button class="btn btn-secondary btn-sm" id="agents-refresh">${icons.loader} 刷新</button>
         </div>
         <div class="card-grid" id="agents-grid">${renderAgentCards()}</div>
@@ -18,7 +19,7 @@ export function render() {
 }
 
 function renderAgentCards() {
-  if (!agentsList.length) return '<div class="glass-card" style="color:var(--fg2);font-size:13px">暂无 Agent</div>';
+  if (!agentsList.length) return '<div class="glass-card" style="color:var(--fg2);font-size:13px">${t('agents.none')}</div>';
   return agentsList.map(a => `<div class="glass-card" style="cursor:pointer" data-id="${a.id}">
     <div style="display:flex;justify-content:space-between;align-items:start">
       <div>
@@ -33,7 +34,7 @@ function renderAgentCards() {
 }
 
 function renderDetail() {
-  if (!selectedAgent) return '<div class="glass-card" style="color:var(--fg2);font-size:13px">选择一个 Agent 查看详情</div>';
+  if (!selectedAgent) return '<div class="glass-card" style="color:var(--fg2);font-size:13px">${t('agents.detail')}</div>';
   const a = selectedAgent;
   return `<div class="glass-card">
     <div style="font-size:16px;font-weight:600;margin-bottom:16px">${a.name || a.id}</div>
