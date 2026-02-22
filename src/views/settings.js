@@ -1,5 +1,6 @@
-export function render() {
 import { t } from '../i18n.js';
+
+export function render() {
   const s = window.__app.ws.state.settings;
   return `<div class="page-header"><h1>${t('settings.title')}</h1><p>${t('settings.sub')}</p></div>
     <div class="tabs">
