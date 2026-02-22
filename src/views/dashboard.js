@@ -85,9 +85,9 @@ function renderSessions(sessions) {
     const agent = s.agentId || '';
     const model = s.model || '';
     const age = s.lastActiveAt ? fmtAge(s.lastActiveAt) : '';
-    return `<div class="glass-card" style="padding:12px 16px;margin-bottom:6px;cursor:pointer" data-key="${s.sessionKey || ''}">
+    return `<div class="glass-card" style="padding:12px 16px;margin-bottom:6px;cursor:pointer;transform:none" data-key="${s.sessionKey || ''}">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <div><div style="font-size:14px;font-weight:500">${label}</div>
+        <div><div style="font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px">${label}</div>
           <div style="font-size:11px;color:var(--fg3)">${[agent, model].filter(Boolean).join(' · ')}</div></div>
         <div style="text-align:right">
           <span class="badge badge-success">活跃</span>

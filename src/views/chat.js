@@ -15,7 +15,7 @@ export function render() {
     </div>
     <div class="chat-main">
       <div style="padding:10px 20px;border-bottom:1px solid var(--glass-border);display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:13px;color:var(--fg2)" id="chat-title">${activeSession || '选择会话'}</span>
+        <span style="font-size:13px;color:var(--fg2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0" id="chat-title">${activeSession || '选择会话'}</span>
         <div style="display:flex;gap:6px">
           <button class="btn-icon" title="中止回复" id="btn-abort">${icons.stop}</button>
           <button class="btn-icon" title="重置会话" id="btn-reset">${icons.x}</button>

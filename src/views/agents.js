@@ -5,15 +5,15 @@ let agentsList = [], selectedAgent = null;
 export function render() {
   agentsList = window.__app.ws.state.agents;
   return `<div class="page-header"><h1>Agents</h1><p>管理 AI Agent 实例</p></div>
-    <div style="display:flex;gap:20px;flex-wrap:wrap">
-      <div style="flex:1;min-width:280px">
+    <div class="agents-layout">
+      <div class="agents-list">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
           <div class="card-title" style="margin:0">Agent 列表 (${agentsList.length})</div>
           <button class="btn btn-secondary btn-sm" id="agents-refresh">${icons.loader} 刷新</button>
         </div>
         <div class="card-grid" id="agents-grid">${renderAgentCards()}</div>
       </div>
-      <div style="flex:0 0 360px;min-width:280px" id="agent-detail">${renderDetail()}</div>
+      <div class="agents-detail" id="agent-detail">${renderDetail()}</div>
     </div>`;
 }
 
