@@ -14,20 +14,23 @@ const $content = document.getElementById('content');
 const $dot = document.getElementById('gw-dot');
 const $gwLabel = document.getElementById('gw-label');
 const $sidebar = document.getElementById('sidebar');
+const $backdrop = document.getElementById('sidebar-backdrop');
 
 $nav.innerHTML = navItems.map(n =>
   `<div class="nav-item" data-route="${n.id}">${icons[n.icon]}<span>${n.label}</span></div>`
 ).join('');
 $nav.addEventListener('click', e => {
   const item = e.target.closest('.nav-item');
-  if (item) { navigate(item.dataset.route); $sidebar.classList.remove('open'); }
+  if (item) { navigate(item.dataset.route); closeSidebar(); }
 });
 
 // Mobile menu toggle
-document.getElementById('menu-toggle')?.addEventListener('click', () => $sidebar.classList.toggle('open'));
-document.addEventListener('click', e => {
-  if (window.innerWidth <= 768 && $sidebar.classList.contains('open') && !$sidebar.contains(e.target) && e.target.id !== 'menu-toggle' && !e.target.closest('#menu-toggle')) $sidebar.classList.remove('open');
+function closeSidebar() { $sidebar.classList.remove('open'); $backdrop.classList.remove('show'); }
+document.getElementById('menu-toggle')?.addEventListener('click', () => {
+  const open = $sidebar.classList.toggle('open');
+  $backdrop.classList.toggle('show', open);
 });
+$backdrop.addEventListener('click', closeSidebar);
 
 let currentView = null;
 

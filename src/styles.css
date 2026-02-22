@@ -100,6 +100,11 @@ body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); c
 .check-icon.ok { background: rgba(74,222,128,0.15); color: var(--success); }
 .check-icon.fail { background: rgba(248,113,113,0.15); color: var(--danger); }
 .check-icon.loading { background: rgba(251,191,36,0.15); color: var(--warn); animation: pulse 1.5s infinite; }
+.terminal-box { word-break: break-all; }
+
+/* Sidebar backdrop (mobile) */
+.sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 15; }
+.sidebar-backdrop.show { display: block; }
 .check-label { font-size: 14px; }
 .check-detail { font-size: 12px; color: var(--fg2); }
 
@@ -178,19 +183,64 @@ body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); c
 /* Menu toggle */
 .menu-toggle { position: fixed; top: 12px; left: 12px; z-index: 25; display: none; }
 
-/* Responsive */
+/* Responsive: large (>1024px) — sidebar hover-expand */
+@media (min-width: 1025px) {
+  .menu-toggle { display: none !important; }
+}
+
+/* Responsive: medium (769–1024px) — sidebar icon-only, no hover expand */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .menu-toggle { display: none !important; }
+  #sidebar { width: var(--sidebar-w); min-width: var(--sidebar-w); }
+  #sidebar:hover { width: var(--sidebar-w); min-width: var(--sidebar-w); }
+  #sidebar:hover .nav-item span,
+  #sidebar:hover .sidebar-logo span,
+  #sidebar:hover .sidebar-footer span { opacity: 0; }
+  #content { padding: 20px; }
+  .card-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+  .wizard-content { min-height: 300px; padding: 18px; }
+  .settings-section { max-width: 100%; }
+  .chat-sessions { width: 200px; }
+}
+
+/* Responsive: small (≤768px) — sidebar overlay + hamburger */
 @media (max-width: 768px) {
-  #sidebar { width: 0; min-width: 0; border: none; position: fixed; height: 100vh; z-index: 20; }
-  #sidebar.open { width: var(--sidebar-exp); min-width: var(--sidebar-exp); border-right: 1px solid rgba(255,215,0,0.06); }
-  #sidebar.open .nav-item span, #sidebar.open .sidebar-logo span, #sidebar.open .sidebar-footer span { opacity: 1; }
   .menu-toggle { display: flex !important; }
+  #sidebar { width: 0; min-width: 0; border: none; position: fixed; height: 100vh; z-index: 20; }
+  #sidebar:hover { width: 0; min-width: 0; }
+  #sidebar.open { width: var(--sidebar-exp); min-width: var(--sidebar-exp); border-right: 1px solid rgba(255,215,0,0.06); }
+  #sidebar.open .nav-item span,
+  #sidebar.open .sidebar-logo span,
+  #sidebar.open .sidebar-footer span { opacity: 1; }
   #content { padding: 16px; padding-top: 48px; }
   .card-grid { grid-template-columns: 1fr; }
-  .chat-layout { flex-direction: column; }
-  .chat-sessions { width: 100%; max-height: 140px; border-right: none; border-bottom: 1px solid rgba(255,215,0,0.06); }
   .page-header h1 { font-size: 20px; }
+  .wizard-content { min-height: auto; padding: 16px; }
+  .wizard-actions { flex-wrap: wrap; gap: 8px; }
+  .settings-section { max-width: 100%; }
+  .tabs { overflow-x: auto; flex-wrap: nowrap; gap: 0; }
+  .tab { flex-shrink: 0; padding: 10px 14px; }
+  .json-editor { min-height: 250px; }
+  .chat-layout { flex-direction: column; margin: -16px; margin-top: -48px; height: calc(100vh - 0px); }
+  .chat-sessions { width: 100%; max-height: 120px; border-right: none; border-bottom: 1px solid rgba(255,215,0,0.06); }
+  .chat-form textarea { font-size: 16px; }
+  .msg { max-width: 90%; }
+  .modal { width: 95%; padding: 20px; }
+  .toast-container { left: 16px; right: 16px; }
+  .toast { font-size: 12px; }
 }
-@media (min-width: 769px) { .menu-toggle { display: none !important; } }
+
+/* Responsive: extra small (≤480px) */
+@media (max-width: 480px) {
+  #content { padding: 12px; padding-top: 44px; }
+  .page-header { margin-bottom: 16px; }
+  .page-header h1 { font-size: 18px; }
+  .glass-card { padding: 14px; }
+  .check-item { padding: 10px 12px; }
+  .wizard-steps { gap: 4px; }
+  .btn { padding: 7px 14px; font-size: 12px; }
+  .card-value { font-size: 22px; }
+}
 
 /* Selection highlight */
 ::selection { background: rgba(255,215,0,0.2); color: var(--fg); }
