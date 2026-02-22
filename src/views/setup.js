@@ -289,20 +289,26 @@ function addBunInstallBtn(c) {
 async function installBun(c) {
   const btn = c.querySelector('#btn-bun-install'), log = c.querySelector('#bun-install-log');
   btn.disabled = true; btn.textContent = '安装中...';
-  log.style.display = ''; log.textContent = '$ curl -fsSL https://bun.sh/install | bash\n';
+  log.style.display = ''; log.textContent = '📥 正在下载 Bun 安装脚本...\n';
   try {
-    const cmd = Shell().Command.create('sh', ['-c', 'curl -fsSL https://bun.sh/install | bash']);
+    const cmd = Shell().Command.create('sh', ['-c',
+      'echo "📥 下载安装脚本..." && ' +
+      'curl -fL# https://bun.sh/install -o /tmp/bun-install.sh 2>&1 && ' +
+      'echo "📦 正在安装 Bun..." && ' +
+      'bash /tmp/bun-install.sh 2>&1 && ' +
+      'echo "✅ 安装完成" && rm -f /tmp/bun-install.sh'
+    ]);
     cmd.stdout.on('data', l => { log.textContent += l + '\n'; log.scrollTop = log.scrollHeight; });
     cmd.stderr.on('data', l => { log.textContent += l + '\n'; log.scrollTop = log.scrollHeight; });
     await cmd.spawn();
     const status = await new Promise(r => cmd.on('close', r));
     if (status.code === 0) {
-      env.bun = 'installed'; log.textContent += '\n✅ Bun 安装完成\n'; btn.textContent = '已安装';
+      env.bun = 'installed'; btn.textContent = '已安装';
       window.__app.toast('Bun 安装成功', 'success');
       const items = c.querySelectorAll('.check-item');
       const v = await runCmd('sh', ['-c', '$HOME/.bun/bin/bun --version']);
       if (v?.code === 0) { env.bun = v.stdout.trim(); setCheck(items[0], true, `v${env.bun}`); }
-    } else { btn.disabled = false; btn.textContent = '重试'; log.textContent += '\n❌ 安装失败\n'; }
+    } else { btn.disabled = false; btn.textContent = '重试'; log.textContent += '\n❌ 安装失败 (exit ' + status.code + ')\n'; }
   } catch (e) { btn.disabled = false; btn.textContent = '重试'; log.textContent += '\n❌ ' + e.message + '\n'; }
 }
 
@@ -338,7 +344,7 @@ function renderProvider(c) {
     <p style="color:var(--fg2);margin-bottom:16px">选择 AI 模型提供商并填入 API Key。</p>
     <div style="display:grid;gap:14px;max-width:480px">
       <div><label class="input-label">Provider</label><select class="input" id="prov-select" aria-label="选择 Provider">${opts}</select></div>
-      <div id="prov-baseurl-wrap" style="display:none"><label class="input-label">Base URL</label><input class="input" id="prov-baseurl"></div>
+      <div><label class="input-label">Base URL <span style="color:var(--fg3)">(可选，自定义端点)</span></label><input class="input" id="prov-baseurl" placeholder="留空使用默认端点"></div>
       <div><label class="input-label">API Key</label><input class="input" id="prov-key" type="password" placeholder="${PROVIDERS[0].placeholder}"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-primary btn-sm" id="btn-prov-save">保存配置</button>
@@ -346,13 +352,12 @@ function renderProvider(c) {
       </div>
       <div id="prov-result" style="font-size:13px"></div>
     </div>`;
-  const sel = c.querySelector('#prov-select'), urlWrap = c.querySelector('#prov-baseurl-wrap'), urlInput = c.querySelector('#prov-baseurl'), keyInput = c.querySelector('#prov-key');
+  const sel = c.querySelector('#prov-select'), urlInput = c.querySelector('#prov-baseurl'), keyInput = c.querySelector('#prov-key');
   function onProvChange() {
     const p = PROVIDERS.find(x => x.id === sel.value);
     keyInput.placeholder = p.placeholder;
-    if (p.id === 'custom') { urlWrap.style.display = ''; urlInput.value = ''; }
-    else if (p.baseUrl) { urlWrap.style.display = ''; urlInput.value = p.baseUrl; }
-    else { urlWrap.style.display = 'none'; }
+    urlInput.value = p.baseUrl || '';
+    urlInput.placeholder = p.baseUrl ? p.baseUrl : '留空使用默认端点';
   }
   sel.onchange = onProvChange; onProvChange();
   c.querySelector('#btn-prov-save').onclick = () => saveProvider(c);
