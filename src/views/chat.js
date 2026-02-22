@@ -17,8 +17,8 @@ export function render() {
       <div style="padding:10px 20px;border-bottom:1px solid var(--glass-border);display:flex;justify-content:space-between;align-items:center">
         <span style="font-size:13px;color:var(--fg2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0" id="chat-title">${activeSession || '选择会话'}</span>
         <div style="display:flex;gap:6px">
-          <button class="btn-icon" title="中止回复" id="btn-abort">${icons.stop}</button>
-          <button class="btn-icon" title="重置会话" id="btn-reset">${icons.x}</button>
+          <button class="btn-icon" title="中止回复" aria-label="中止回复" id="btn-abort">${icons.stop}</button>
+          <button class="btn-icon" title="重置会话" aria-label="重置会话" id="btn-reset">${icons.x}</button>
         </div>
       </div>
       <div class="chat-messages" id="chat-msgs"></div>
@@ -29,8 +29,8 @@ export function render() {
           <button class="quick-cmd" data-cmd="/compact">压缩</button>
         </div>
         <form class="chat-form" id="chat-form">
-          <textarea class="input" id="chat-input" placeholder="输入消息..." rows="1"></textarea>
-          <button type="submit" class="btn btn-primary">${icons.send}</button>
+          <textarea class="input" id="chat-input" placeholder="输入消息..." rows="1" aria-label="消息输入"></textarea>
+          <button type="submit" class="btn btn-primary" aria-label="发送">${icons.send}</button>
         </form>
       </div>
     </div>

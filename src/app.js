@@ -32,6 +32,13 @@ document.getElementById('menu-toggle')?.addEventListener('click', () => {
 });
 $backdrop.addEventListener('click', closeSidebar);
 
+// Touch tap to expand sidebar on large screens (tablets)
+$sidebar.addEventListener('click', e => {
+  if (window.innerWidth > 768 && !e.target.closest('.nav-item') && !$sidebar.classList.contains('open')) {
+    $sidebar.classList.toggle('open');
+  }
+});
+
 let currentView = null;
 
 async function navigate(route) {

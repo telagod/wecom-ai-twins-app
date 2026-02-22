@@ -1,6 +1,7 @@
 import { icons } from '../components/icons.js';
 
 const Shell = () => window.__TAURI__?.shell;
+const isMobile = /android|iphone|ipad|ipod/i.test(navigator.userAgent);
 
 const PROVIDERS = [
   { id: 'anthropic', name: 'Anthropic', api: 'anthropic-messages', placeholder: 'sk-ant-...' },
@@ -10,19 +11,25 @@ const PROVIDERS = [
   { id: 'custom', name: '自定义 (OpenAI 兼容)', api: 'openai-chat', placeholder: 'API Key' },
 ];
 
-const steps = ['环境检测', '安装 OpenClaw', '配置 Provider', '启动 Gateway', '完成'];
+const desktopSteps = ['环境检测', '安装 OpenClaw', '配置 Provider', '启动 Gateway', '完成'];
+const mobileSteps = ['连接 Gateway', '完成'];
+const steps = isMobile ? mobileSteps : desktopSteps;
+const lastStep = steps.length - 1;
+
 let step = 0;
-let env = { bun: null, openclaw: null, providerOk: false, gwRunning: false };
+let env = { bun: null, openclaw: null, providerOk: false, gwRunning: false, connected: false };
 let child = null;
 export function getChild() { return child; }
 
 export function render() {
-  return `<div class="page-header"><h1>快速部署 OpenClaw</h1><p>一键安装，本地运行</p></div>
+  const title = isMobile ? '连接 OpenClaw' : '快速部署 OpenClaw';
+  const sub = isMobile ? '连接远程 Gateway' : '一键安装，本地运行';
+  return `<div class="page-header"><h1>${title}</h1><p>${sub}</p></div>
     <div class="wizard-steps">${steps.map((s, i) => `<div class="wizard-step ${i < step ? 'done' : i === step ? 'active' : ''}" title="${s}"></div>`).join('')}</div>
     <div class="wizard-content glass-card" id="wiz-content"></div>
     <div class="wizard-actions">
-      <button class="btn btn-secondary" id="wiz-prev" style="visibility:${step > 0 && step < 4 ? 'visible' : 'hidden'}">上一步</button>
-      <button class="btn btn-primary" id="wiz-next">${step === 4 ? '进入仪表盘' : '下一步'}</button>
+      <button class="btn btn-secondary" id="wiz-prev" style="visibility:${step > 0 && step < lastStep ? 'visible' : 'hidden'}">上一步</button>
+      <button class="btn btn-primary" id="wiz-next">${step === lastStep ? '进入仪表盘' : '下一步'}</button>
     </div>`;
 }
 
@@ -34,7 +41,22 @@ export function mount(el) {
 
 function refresh(el) { el.querySelector('.fade-in').innerHTML = render(); mount(el); }
 
+// ── Navigation ──
+
 function handleNext(el) {
+  if (isMobile) return handleNextMobile(el);
+  return handleNextDesktop(el);
+}
+
+function handleNextMobile(el) {
+  if (step === 0) {
+    if (!env.connected) { window.__app.toast('请先测试连接', 'error'); return; }
+    step = 1;
+  } else { window.__app.navigate('dashboard'); return; }
+  refresh(el);
+}
+
+function handleNextDesktop(el) {
   if (step === 0) {
     if (!env.bun) { window.__app.toast('请先安装 Bun', 'error'); return; }
     step = env.openclaw ? 2 : 1;
@@ -53,8 +75,84 @@ function handleNext(el) {
 
 function renderStep(el) {
   const c = el.querySelector('#wiz-content');
-  [renderDetect, renderInstall, renderProvider, renderGateway, renderDone][step](c);
+  if (isMobile) {
+    [renderMobileConnect, renderDone][step](c);
+  } else {
+    [renderDetect, renderInstall, renderProvider, renderGateway, renderDone][step](c);
+  }
 }
+
+// ══════════════════════════════════
+// Mobile flow
+// ══════════════════════════════════
+
+function renderMobileConnect(c) {
+  const s = window.__app.ws.state.settings;
+  c.innerHTML = `<h3 style="margin-bottom:16px">连接 Gateway</h3>
+    <p style="color:var(--fg2);margin-bottom:16px">输入远程 Gateway 地址和 Token，或扫描二维码连接。</p>
+    <div style="display:grid;gap:14px;max-width:480px">
+      <div><label class="input-label">Gateway 地址</label><input class="input" id="m-url" value="${s.url || 'ws://192.168.1.100:18789'}" placeholder="ws://IP:端口"></div>
+      <div><label class="input-label">Auth Token</label><input class="input" id="m-token" type="password" value="${s.token || ''}" placeholder="Gateway 认证 Token"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" id="m-test">测试连接</button>
+        <button class="btn btn-secondary btn-sm" id="m-probe">局域网探测</button>
+      </div>
+      <div id="m-result" style="font-size:13px"></div>
+    </div>`;
+  c.querySelector('#m-test').onclick = () => testMobileConnect(c);
+  c.querySelector('#m-probe').onclick = () => probeLAN(c);
+}
+
+async function testMobileConnect(c) {
+  const url = c.querySelector('#m-url').value.trim();
+  const token = c.querySelector('#m-token').value.trim();
+  const result = c.querySelector('#m-result');
+  if (!url) { result.innerHTML = '<span style="color:var(--danger)">请输入 Gateway 地址</span>'; return; }
+  result.innerHTML = '<span style="color:var(--warn)">连接中...</span>';
+  try {
+    const ws = new WebSocket(url);
+    await new Promise((ok, fail) => { ws.onopen = ok; ws.onerror = fail; setTimeout(fail, 5000); });
+    ws.close();
+    window.__app.ws.saveSettings({ url, token });
+    env.connected = true;
+    result.innerHTML = '<span style="color:var(--success)">✅ 连接成功</span>';
+    window.__app.toast('Gateway 可达', 'success');
+  } catch {
+    result.innerHTML = '<span style="color:var(--danger)">连接失败 — 请检查地址和网络</span>';
+  }
+}
+
+function probeLAN(c) {
+  const result = c.querySelector('#m-result');
+  result.innerHTML = '<span style="color:var(--warn)">探测中...</span>';
+  const ports = [18789, 19001];
+  const subnet = '192.168.1';
+  let found = false, checked = 0, total = 10 * ports.length;
+
+  // Probe common IPs on local subnet
+  for (let i = 1; i <= 10; i++) {
+    for (const port of ports) {
+      try {
+        const ws = new WebSocket(`ws://${subnet}.${i}:${port}`);
+        const t = setTimeout(() => { ws.close(); if (++checked >= total && !found) result.innerHTML = '<span style="color:var(--fg2)">未发现 Gateway</span>'; }, 2000);
+        ws.onopen = () => {
+          clearTimeout(t); ws.close();
+          if (!found) {
+            found = true;
+            const url = `ws://${subnet}.${i}:${port}`;
+            c.querySelector('#m-url').value = url;
+            result.innerHTML = `<span style="color:var(--success)">发现 Gateway: ${url}</span>`;
+          }
+        };
+        ws.onerror = () => { clearTimeout(t); if (++checked >= total && !found) result.innerHTML = '<span style="color:var(--fg2)">未发现 Gateway</span>'; };
+      } catch { checked++; }
+    }
+  }
+}
+
+// ══════════════════════════════════
+// Desktop flow
+// ══════════════════════════════════
 
 async function runCmd(program, args) {
   try { return await Shell().Command.create(program, args).execute(); } catch { return null; }
@@ -82,16 +180,11 @@ function setCheck(el, ok, detail) {
 
 async function runDetect(c) {
   const items = c.querySelectorAll('.check-item');
-
-  // Check bun (system PATH + ~/.bun/bin)
   let bunOut = await runCmd('bun', ['--version']);
-  if (!bunOut || bunOut.code !== 0) {
-    bunOut = await runCmd('sh', ['-c', '$HOME/.bun/bin/bun --version']);
-  }
+  if (!bunOut || bunOut.code !== 0) bunOut = await runCmd('sh', ['-c', '$HOME/.bun/bin/bun --version']);
   if (bunOut?.code === 0) { env.bun = bunOut.stdout.trim(); setCheck(items[0], true, `v${env.bun}`); }
   else { env.bun = null; setCheck(items[0], false, '未找到 — 点击下方「安装 Bun」或 <a href="https://bun.sh" target="_blank" style="color:var(--accent)">手动安装</a>'); addBunInstallBtn(c); }
 
-  // Check openclaw
   const ocOut = await runCmd('openclaw', ['--version']);
   if (ocOut?.code === 0) { env.openclaw = ocOut.stdout.trim(); setCheck(items[1], true, env.openclaw); }
   else {
@@ -111,11 +204,9 @@ function addBunInstallBtn(c) {
 }
 
 async function installBun(c) {
-  const btn = c.querySelector('#btn-bun-install');
-  const log = c.querySelector('#bun-install-log');
+  const btn = c.querySelector('#btn-bun-install'), log = c.querySelector('#bun-install-log');
   btn.disabled = true; btn.textContent = '安装中...';
   log.style.display = ''; log.textContent = '$ curl -fsSL https://bun.sh/install | bash\n';
-
   try {
     const cmd = Shell().Command.create('sh', ['-c', 'curl -fsSL https://bun.sh/install | bash']);
     cmd.stdout.on('data', l => { log.textContent += l + '\n'; log.scrollTop = log.scrollHeight; });
@@ -123,11 +214,8 @@ async function installBun(c) {
     await cmd.spawn();
     const status = await new Promise(r => cmd.on('close', r));
     if (status.code === 0) {
-      env.bun = 'installed';
-      log.textContent += '\n✅ Bun 安装完成\n';
-      btn.textContent = '已安装';
+      env.bun = 'installed'; log.textContent += '\n✅ Bun 安装完成\n'; btn.textContent = '已安装';
       window.__app.toast('Bun 安装成功', 'success');
-      // Re-run detection
       const items = c.querySelectorAll('.check-item');
       const v = await runCmd('sh', ['-c', '$HOME/.bun/bin/bun --version']);
       if (v?.code === 0) { env.bun = v.stdout.trim(); setCheck(items[0], true, `v${env.bun}`); }
@@ -166,7 +254,7 @@ function renderProvider(c) {
   c.innerHTML = `<h3 style="margin-bottom:16px">配置 LLM Provider</h3>
     <p style="color:var(--fg2);margin-bottom:16px">选择 AI 模型提供商并填入 API Key。</p>
     <div style="display:grid;gap:14px;max-width:480px">
-      <div><label class="input-label">Provider</label><select class="input" id="prov-select">${opts}</select></div>
+      <div><label class="input-label">Provider</label><select class="input" id="prov-select" aria-label="选择 Provider">${opts}</select></div>
       <div id="prov-baseurl-wrap" style="display:none"><label class="input-label">Base URL</label><input class="input" id="prov-baseurl"></div>
       <div><label class="input-label">API Key</label><input class="input" id="prov-key" type="password" placeholder="${PROVIDERS[0].placeholder}"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -195,14 +283,11 @@ async function saveProvider(c) {
   if (!key) { result.innerHTML = '<span style="color:var(--danger)">请输入 API Key</span>'; return; }
   result.innerHTML = '<span style="color:var(--warn)">保存中...</span>';
   const provId = p.id === 'custom' ? 'custom' : p.id;
-  const cmds = [
-    ['models.providers.' + provId + '.apiKey', key],
-    ['models.providers.' + provId + '.api', p.api],
-  ];
+  const cmds = [['models.providers.' + provId + '.apiKey', key], ['models.providers.' + provId + '.api', p.api]];
   if (baseUrl) cmds.push(['models.providers.' + provId + '.baseUrl', baseUrl]);
   for (const [path, val] of cmds) {
     const r = await runCmd('sh', ['-c', `export PATH="$HOME/.bun/bin:$PATH" && openclaw config set '${path}' '${val}'`]);
-    if (r?.code !== 0) { result.innerHTML = `<span style="color:var(--danger)">配置失败</span>`; return; }
+    if (r?.code !== 0) { result.innerHTML = '<span style="color:var(--danger)">配置失败</span>'; return; }
   }
   env.providerOk = true;
   result.innerHTML = '<span style="color:var(--success)">✅ 已保存</span>';
@@ -263,13 +348,14 @@ function onGatewayReady(c, port) {
   window.__app.toast('Gateway 已启动', 'success');
 }
 
-// ── Step 4: Done ──
+// ── Done (shared) ──
 
 function renderDone(c) {
+  const msg = isMobile ? 'Gateway 已连接' : 'OpenClaw Gateway 已在本地运行';
   c.innerHTML = `<div style="text-align:center;padding:40px 0">
     <div style="font-size:48px;margin-bottom:16px">🦞</div>
-    <h3 style="margin-bottom:8px">部署完成</h3>
-    <p style="color:var(--fg2)">OpenClaw Gateway 已在本地运行</p>
+    <h3 style="margin-bottom:8px">${isMobile ? '连接完成' : '部署完成'}</h3>
+    <p style="color:var(--fg2)">${msg}</p>
     <p style="color:var(--fg2);margin-top:8px">点击「进入仪表盘」开始使用</p>
   </div>`;
   window.__app.tryConnect();
@@ -277,5 +363,5 @@ function renderDone(c) {
 
 export function destroy() {
   step = 0;
-  env = { bun: null, openclaw: null, providerOk: false, gwRunning: false };
+  env = { bun: null, openclaw: null, providerOk: false, gwRunning: false, connected: false };
 }
