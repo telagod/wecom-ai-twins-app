@@ -17,6 +17,22 @@
   --gold-text: linear-gradient(135deg, #ffd700 0%, #ffe566 40%, #f0a500 100%);
 }
 
+[data-theme="light"] {
+  --bg: #f5f3ef; --bg1: #eae7e1; --bg2: #e0ddd6; --bg3: #d5d1c9;
+  --glass: rgba(180,140,0,0.05); --glass-border: rgba(180,140,0,0.15); --glass-hover: rgba(180,140,0,0.1);
+  --accent: #b8860b; --accent2: #996600; --accent-glow: rgba(180,140,0,0.1);
+  --accent-soft: rgba(180,140,0,0.9);
+  --fg: #1a1a1a; --fg2: #555; --fg3: #999;
+  --shadow: 0 4px 16px rgba(0,0,0,0.08), 0 0 1px rgba(180,140,0,0.15);
+  --gold-gradient: linear-gradient(135deg, #b8860b, #996600, #7a5200);
+  --gold-text: linear-gradient(135deg, #b8860b 0%, #d4a017 40%, #996600 100%);
+}
+[data-theme="light"] .glass-card { background: rgba(180,140,0,0.04); border-color: rgba(180,140,0,0.12); }
+[data-theme="light"] .glass-card::before { background: linear-gradient(90deg, transparent, rgba(180,140,0,0.25), transparent); }
+[data-theme="light"] .sidebar { background: rgba(230,225,215,0.95); }
+[data-theme="light"] .input, [data-theme="light"] .json-editor, [data-theme="light"] .terminal-box { background: #fff; border-color: rgba(0,0,0,0.12); color: #1a1a1a; }
+[data-theme="light"] select.input { background: #fff; color: #1a1a1a; }
+
 body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--fg); height: 100vh; overflow: hidden; font-size: 14px; line-height: 1.5; }
 
 /* Glass */

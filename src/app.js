@@ -2,6 +2,10 @@ import { t } from './i18n.js';
 import { icons } from './components/icons.js';
 import * as ws from './components/ws-client.js';
 
+// Apply saved theme
+const savedTheme = localStorage.getItem('openclaw-theme');
+if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+
 const routes = { setup: './views/setup.js', dashboard: './views/dashboard.js', chat: './views/chat.js', agents: './views/agents.js', logs: './views/logs.js', settings: './views/settings.js' };
 const navItems = [
   { id: 'dashboard', icon: 'home', label: t('dash.title') },

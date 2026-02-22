@@ -43,7 +43,7 @@ function renderConfig() {
 }
 
 function renderAdvanced(s) {
-  const ver = '0.6.6';
+  const ver = '0.6.7';
   const hasUpdate = window.__app._pendingUpdate;
   return `<div class="fade-in">
     <div class="glass-card" style="margin-bottom:16px">
@@ -61,6 +61,13 @@ function renderAdvanced(s) {
         <option value="auto" ${getLang() === (navigator.language?.startsWith('zh') ? 'zh' : 'en') ? 'selected' : ''}>${t("settings.langAuto")}</option>
         <option value="zh" ${getLang() === 'zh' ? '' : ''}>中文</option>
         <option value="en" ${getLang() === 'en' ? '' : ''}>English</option>
+      </select>
+    </div>
+    <div class="glass-card" style="margin-bottom:16px">
+      <div class="card-title">Theme</div>
+      <select class="input" id="s-theme" style="max-width:200px">
+        <option value="dark" ${document.documentElement.dataset.theme !== 'light' ? 'selected' : ''}>🌙 Dark</option>
+        <option value="light" ${document.documentElement.dataset.theme === 'light' ? 'selected' : ''}>☀️ Light</option>
       </select>
     </div>
     <p style="color:var(--fg2);font-size:13px;margin-bottom:12px">${t("settings.localSettings")}</p>
@@ -127,6 +134,11 @@ function bindAdvanced(el) {
     else { setLang(v); }
     localStorage.setItem('openclaw-lang', v);
     window.__app.navigate(window.__app.currentRoute || 'settings');
+  });
+  el.querySelector('#s-theme')?.addEventListener('change', (e) => {
+    const v = e.target.value;
+    document.documentElement.dataset.theme = v;
+    localStorage.setItem('openclaw-theme', v);
   });
   el.querySelector('#s-check-update')?.addEventListener('click', async () => {
     const status = el.querySelector('#s-update-status');
