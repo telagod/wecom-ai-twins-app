@@ -46,14 +46,18 @@ $sidebar.addEventListener('click', e => {
 });
 
 let currentView = null;
+let currentRoute = null;
 
 async function navigate(route) {
   if (!routes[route]) route = 'dashboard';
+  currentRoute = route;
+  if (window.__app) window.__app.currentRoute = route;
   location.hash = route;
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.route === route));
   try {
     const mod = await import(routes[route]);
     if (currentView?.destroy) currentView.destroy();
+    if (currentView?.unmount) currentView.unmount();
     currentView = mod;
     $content.innerHTML = `<div class="fade-in">${mod.render()}</div>`;
     if (mod.mount) mod.mount($content);
@@ -76,14 +80,8 @@ function toast(msg, type = 'info') {
 // Auto-connect logic
 function tryConnect() {
   const s = ws.state.settings;
-  if (s.url && s.token) {
-    ws.connect(setGwStatus);
-  } else {
-    // Try default localhost
-    s.url = s.url || 'ws://127.0.0.1:18789';
-    ws.saveSettings(s);
-    if (s.token) ws.connect(setGwStatus);
-  }
+  s.url = s.url || 'ws://127.0.0.1:18789';
+  ws.connect(setGwStatus);
 }
 
 // Events
@@ -98,7 +96,7 @@ ws.on('status', connected => {
   } else {
     clearInterval(window.__refreshTimer);
     // Auto-reconnect after 5s
-    setTimeout(() => { if (!ws.isConnected() && ws.state.settings.token) tryConnect(); }, 5000);
+    setTimeout(() => { if (!ws.isConnected() && ws.state.settings.url) tryConnect(); }, 5000);
   }
 });
 ws.on('agent', payload => { if (currentView?.onAgentEvent) currentView.onAgentEvent(payload); });
@@ -114,14 +112,15 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// Init — skip setup if token exists
+// Init — skip setup if any connection settings exist
 const hash = location.hash.slice(1);
-const startRoute = hash && routes[hash] ? hash : (ws.state.settings.token ? 'dashboard' : 'setup');
+const hasConnectionSettings = !!(ws.state.settings.url || ws.state.settings.token || ws.state.settings.deviceToken);
+const startRoute = hash && routes[hash] ? hash : (hasConnectionSettings ? 'dashboard' : 'setup');
 navigate(startRoute);
 window.addEventListener('hashchange', () => navigate(location.hash.slice(1)));
 tryConnect();
 
-window.__app = { ws, setGwStatus, tryConnect, navigate, toast };
+window.__app = { ws, setGwStatus, tryConnect, navigate, toast, currentRoute };
 
 // Kill gateway child process on app exit
 window.addEventListener('beforeunload', async () => {

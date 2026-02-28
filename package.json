@@ -4,9 +4,12 @@
   "version": "0.6.7",
   "type": "module",
   "scripts": {
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed"
   },
   "devDependencies": {
+    "@playwright/test": "^1.55.0",
     "@tauri-apps/cli": "^2"
   },
   "dependencies": {

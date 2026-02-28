@@ -1,5 +1,6 @@
 const STORAGE = "openclaw-desktop";
 let ws = null, reqId = 0, handlers = new Map();
+const REQUEST_TIMEOUT_MS = 30000;
 
 export const state = { connected: false, sessions: [], agents: [], channels: [], models: [], settings: load() };
 
@@ -11,6 +12,13 @@ const listeners = new Map();
 export function on(event, fn) { if (!listeners.has(event)) listeners.set(event, []); listeners.get(event).push(fn); }
 export function off(event, fn) { const l = listeners.get(event); if (l) listeners.set(event, l.filter(f => f !== fn)); }
 function emit(event, data) { (listeners.get(event) || []).forEach(fn => fn(data)); }
+function failPending(reason = "disconnected") {
+  const err = new Error(reason);
+  for (const [id, h] of handlers.entries()) {
+    handlers.delete(id);
+    h.reject(err);
+  }
+}
 
 // Connection
 export function connect(onStatus) {
@@ -19,11 +27,20 @@ export function connect(onStatus) {
   onStatus?.("pending", "连接中...");
   ws = new WebSocket(url);
   ws.onmessage = e => { try { handleMsg(JSON.parse(e.data)); } catch {} };
-  ws.onclose = () => { ws = null; state.connected = false; onStatus?.("off", "已断开"); emit("status", false); };
+  ws.onclose = () => {
+    ws = null;
+    state.connected = false;
+    failPending("disconnected");
+    onStatus?.("off", "已断开");
+    emit("status", false);
+  };
   ws.onerror = () => onStatus?.("off", "连接失败");
 }
 
-export function disconnect() { if (ws) ws.close(); ws = null; }
+export function disconnect() {
+  if (ws) ws.close();
+  ws = null;
+}
 export function isConnected() { return ws?.readyState === 1 && state.connected; }
 
 function send(obj) { if (ws?.readyState === 1) ws.send(JSON.stringify(obj)); }
@@ -31,10 +48,19 @@ function send(obj) { if (ws?.readyState === 1) ws.send(JSON.stringify(obj)); }
 // Request with promise
 function req(method, params = {}) {
   return new Promise((resolve, reject) => {
+    if (!ws || ws.readyState !== 1 || !state.connected) {
+      reject(new Error("not_connected"));
+      return;
+    }
     const id = String(++reqId);
     handlers.set(id, { resolve, reject, ts: Date.now() });
     send({ type: "req", id, method, params });
-    setTimeout(() => { if (handlers.has(id)) { handlers.delete(id); reject(new Error("timeout")); } }, 30000);
+    setTimeout(() => {
+      if (handlers.has(id)) {
+        handlers.delete(id);
+        reject(new Error("timeout"));
+      }
+    }, REQUEST_TIMEOUT_MS);
   });
 }
 
@@ -59,6 +85,7 @@ function handleMsg(msg) {
 
 function sendHandshake(nonce) {
   const token = state.settings.token || "";
+  const deviceId = state.settings.deviceId || ("desktop-" + Date.now());
   send({
     type: "req", id: String(++reqId), method: "connect",
     params: {
@@ -67,10 +94,13 @@ function sendHandshake(nonce) {
       role: "operator", scopes: ["operator.read", "operator.write", "operator.admin"],
       caps: [], commands: [], permissions: {},
       auth: { token, deviceToken: state.settings.deviceToken },
-      device: { id: state.settings.deviceId || ("desktop-" + Date.now()), nonce }
+      device: { id: deviceId, nonce }
     }
   });
-  if (!state.settings.deviceId) { state.settings.deviceId = "desktop-" + Date.now(); saveSettings(state.settings); }
+  if (!state.settings.deviceId) {
+    state.settings.deviceId = deviceId;
+    saveSettings(state.settings);
+  }
 }
 
 // ═══════════════════════════════════════

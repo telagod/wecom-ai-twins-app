@@ -20,6 +20,8 @@ export function render() {
         <div style="display:flex;gap:6px">
           <button class="btn-icon" title="${t("chat.abort")}" aria-label="${t("chat.abort")}" id="btn-abort">${icons.stop}</button>
           <button class="btn-icon" title="${t("chat.reset")}" aria-label="${t("chat.reset")}" id="btn-reset">${icons.x}</button>
+          <button class="btn-icon" title="${t("chat.compact")}" aria-label="${t("chat.compact")}" id="btn-compact">${icons.loader}</button>
+          <button class="btn-icon" title="${t("chat.delete")}" aria-label="${t("chat.delete")}" id="btn-delete">${icons.x}</button>
         </div>
       </div>
       <div class="chat-messages" id="chat-msgs"></div>
@@ -59,7 +61,7 @@ export async function mount(el) {
   // Load history
   if (activeSession) {
     try {
-      const res = await ws.chat.history(activeSession, 30);
+      const res = await loadHistory(ws, activeSession, 30);
       const entries = res?.entries || res?.messages || [];
       messages = entries.map(e => ({ role: e.role === 'user' ? 'user' : 'ai', text: e.content || e.text || '' })).filter(m => m.text);
       $msgs.innerHTML = messages.map(renderMsg).join('');
@@ -72,6 +74,32 @@ export async function mount(el) {
     e.preventDefault();
     const text = $input.value.trim();
     if (!text) return;
+    if (text === '/new') {
+      activeSession = null;
+      sessionStorage.removeItem('chat-session');
+      messages = [];
+      $msgs.innerHTML = `<div class="msg msg-system">${t("chat.newSessionDone")}</div>`;
+      el.querySelector('#chat-title').textContent = t('chat.select');
+      $input.value = '';
+      return;
+    }
+    if (text === '/compact' && activeSession) {
+      $input.value = '';
+      ws.manage.sessionCompact(activeSession).then(() => {
+        $msgs.innerHTML += `<div class="msg msg-system">${t("chat.compacted")}</div>`;
+        $msgs.scrollTop = $msgs.scrollHeight;
+      }).catch(() => {});
+      return;
+    }
+    if (text === '/status') {
+      $input.value = '';
+      ws.observe.status().then(status => {
+        const summary = t('chat.statusLine', status?.version || '-', status?.uptime || 0);
+        $msgs.innerHTML += renderMsg({ role: 'ai', text: summary });
+        $msgs.scrollTop = $msgs.scrollHeight;
+      }).catch(() => {});
+      return;
+    }
     messages.push({ role: 'user', text });
     $msgs.innerHTML += renderMsg({ role: 'user', text });
     $input.value = ''; $input.style.height = 'auto';
@@ -95,6 +123,29 @@ export async function mount(el) {
     messages = []; $msgs.innerHTML = `<div class="msg msg-system">${t("chat.resetDone")}</div>`;
   });
 
+  // Compact
+  el.querySelector('#btn-compact')?.addEventListener('click', async () => {
+    if (!activeSession) return;
+    await ws.manage.sessionCompact(activeSession).catch(() => {});
+    $msgs.innerHTML += `<div class="msg msg-system">${t("chat.compacted")}</div>`;
+    $msgs.scrollTop = $msgs.scrollHeight;
+  });
+
+  // Delete
+  el.querySelector('#btn-delete')?.addEventListener('click', async () => {
+    if (!activeSession) return;
+    if (!confirm(t('chat.deleteConfirm', activeSession))) return;
+    await ws.manage.sessionDelete(activeSession).catch(() => {});
+    await ws.loadDashboardData();
+    activeSession = ws.state.sessions[0]?.sessionKey || null;
+    if (activeSession) sessionStorage.setItem('chat-session', activeSession);
+    else sessionStorage.removeItem('chat-session');
+    el.querySelector('#session-list').innerHTML = renderSessionList(ws.state.sessions);
+    el.querySelector('#chat-title').textContent = activeSession || t('chat.select');
+    messages = [];
+    $msgs.innerHTML = `<div class="msg msg-system">${t("chat.deleted")}</div>`;
+  });
+
   // Session switch
   el.querySelector('#session-list')?.addEventListener('click', async e => {
     const item = e.target.closest('.session-item');
@@ -104,7 +155,7 @@ export async function mount(el) {
     el.querySelectorAll('.session-item').forEach(s => s.classList.toggle('active', s.dataset.key === activeSession));
     el.querySelector('#chat-title').textContent = activeSession;
     try {
-      const res = await ws.chat.history(activeSession, 30);
+      const res = await loadHistory(ws, activeSession, 30);
       const entries = res?.entries || res?.messages || [];
       messages = entries.map(e => ({ role: e.role === 'user' ? 'user' : 'ai', text: e.content || e.text || '' })).filter(m => m.text);
       $msgs.innerHTML = messages.map(renderMsg).join('');
@@ -117,6 +168,14 @@ export async function mount(el) {
     await ws.loadDashboardData();
     el.querySelector('#session-list').innerHTML = renderSessionList(ws.state.sessions);
   });
+}
+
+async function loadHistory(ws, sessionKey, limit = 50) {
+  try {
+    return await ws.observe.chatHistory(sessionKey, { limit });
+  } catch {
+    return ws.chat.history(sessionKey, limit);
+  }
 }
 
 function renderMsg(m) { return `<div class="msg msg-${m.role}">${md(m.text)}</div>`; }

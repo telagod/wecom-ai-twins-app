@@ -1,7 +1,8 @@
 import { icons } from '../components/icons.js';
 import { t } from '../i18n.js';
 
-let logLines = [], following = true, evtSource = null;
+let logLines = [], following = true;
+let logHandler = null, logsTailHandler = null;
 
 export function render() {
   return `<div class="page-header"><h1>${icons.terminal} Logs</h1><p>Gateway 实时日志</p></div>
@@ -30,21 +31,22 @@ export function mount(el) {
 
   // Subscribe to gateway logs via WebSocket
   const ws = window.__app.ws;
-  if (ws._logHandler) ws.off('log', ws._logHandler);
-  ws._logHandler = (line) => {
-    logLines.push(line);
-    if (logLines.length > 2000) logLines.shift();
-    const f = filter.value.toLowerCase();
-    if (!f || line.toLowerCase().includes(f)) {
-      const span = document.createElement('div');
-      span.textContent = line;
-      if (line.includes('ERROR') || line.includes('error')) span.style.color = 'var(--danger)';
-      else if (line.includes('WARN') || line.includes('warn')) span.style.color = 'var(--warn)';
-      box.appendChild(span);
-      if (following) box.scrollTop = box.scrollHeight;
-    }
+  if (logHandler) ws.off('log', logHandler);
+  if (logsTailHandler) ws.off('logs.tail', logsTailHandler);
+  logHandler = line => appendLogLine(box, filter, line);
+  logsTailHandler = payload => {
+    const lines = Array.isArray(payload?.lines) ? payload.lines : Array.isArray(payload) ? payload : [];
+    lines.forEach(line => appendLogLine(box, filter, line));
   };
-  ws.on('log', ws._logHandler);
+  ws.on('log', logHandler);
+  ws.on('logs.tail', logsTailHandler);
+
+  if (ws.isConnected()) {
+    ws.observe.logsTail({ limit: 200, follow: true }).then(payload => {
+      const lines = Array.isArray(payload?.lines) ? payload.lines : Array.isArray(payload) ? payload : [];
+      lines.forEach(line => appendLogLine(box, filter, line));
+    }).catch(() => {});
+  }
 }
 
 function renderLogs(box, filter) {
@@ -61,7 +63,23 @@ function renderLogs(box, filter) {
   if (following) box.scrollTop = box.scrollHeight;
 }
 
-export function unmount() {
+function appendLogLine(box, filter, raw) {
+  const line = typeof raw === 'string' ? raw : JSON.stringify(raw);
+  logLines.push(line);
+  if (logLines.length > 2000) logLines.shift();
+  const f = filter.value.toLowerCase();
+  if (!f || line.toLowerCase().includes(f)) {
+    const span = document.createElement('div');
+    span.textContent = line;
+    if (line.includes('ERROR') || line.includes('error')) span.style.color = 'var(--danger)';
+    else if (line.includes('WARN') || line.includes('warn')) span.style.color = 'var(--warn)';
+    box.appendChild(span);
+    if (following) box.scrollTop = box.scrollHeight;
+  }
+}
+
+export function destroy() {
   const ws = window.__app.ws;
-  if (ws._logHandler) { ws.off('log', ws._logHandler); ws._logHandler = null; }
+  if (logHandler) { ws.off('log', logHandler); logHandler = null; }
+  if (logsTailHandler) { ws.off('logs.tail', logsTailHandler); logsTailHandler = null; }
 }

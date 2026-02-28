@@ -59,8 +59,8 @@ function renderAdvanced(s) {
       <div class="card-title">${t("settings.lang")}</div>
       <select class="input" id="s-lang" style="max-width:200px">
         <option value="auto" ${getLang() === (navigator.language?.startsWith('zh') ? 'zh' : 'en') ? 'selected' : ''}>${t("settings.langAuto")}</option>
-        <option value="zh" ${getLang() === 'zh' ? '' : ''}>中文</option>
-        <option value="en" ${getLang() === 'en' ? '' : ''}>English</option>
+        <option value="zh" ${getLang() === 'zh' ? 'selected' : ''}>中文</option>
+        <option value="en" ${getLang() === 'en' ? 'selected' : ''}>English</option>
       </select>
     </div>
     <div class="glass-card" style="margin-bottom:16px">
@@ -115,15 +115,15 @@ function bindConfig(el) {
     try {
       const res = await window.__app.ws.manage.configGet();
       el.querySelector('#s-config').value = JSON.stringify(res?.config || res, null, 2);
-    } catch (e) { el.querySelector('#s-config').value = '${t("settings.loadFail") || "Load failed: "} ' + e.message; }
+    } catch (e) { el.querySelector('#s-config').value = `${t("settings.loadFail") || "Load failed: "} ${e.message}`; }
   });
   el.querySelector('#s-save-config')?.addEventListener('click', async () => {
     try {
       const patch = JSON.parse(el.querySelector('#s-config').value);
       await window.__app.ws.manage.configPatch(patch);
       el.querySelector('#s-save-config').textContent = t('settings.saved') + ' ✓';
-      setTimeout(() => el.querySelector('#s-save-config').textContent = '${t("settings.saveConfig")}', 1500);
-    } catch (e) { window.__app.toast('${t("settings.saveFail")}: ' + e.message, 'error'); }
+      setTimeout(() => el.querySelector('#s-save-config').textContent = t("settings.saveConfig"), 1500);
+    } catch (e) { window.__app.toast(`${t("settings.saveFail")}: ${e.message}`, 'error'); }
   });
 }
 
@@ -142,10 +142,12 @@ function bindAdvanced(el) {
   });
   el.querySelector('#s-check-update')?.addEventListener('click', async () => {
     const status = el.querySelector('#s-update-status');
-    status.innerHTML = '<span style="color:var(--warn)">${t("common.loading")}</span>';
+    status.innerHTML = `<span style="color:var(--warn)">${t("common.loading")}</span>`;
     await window.__app.checkUpdate(false);
     const u = window.__app._pendingUpdate;
-    status.innerHTML = u ? `<span style="color:var(--success)">${t("settings.newVersion") || "New version "} ${u.version}</span>` : '<span style="color:var(--fg2)">${t("settings.upToDate") || "Up to date"}</span>';
+    status.innerHTML = u
+      ? `<span style="color:var(--success)">${t("settings.newVersion") || "New version "} ${u.version}</span>`
+      : `<span style="color:var(--fg2)">${t("settings.upToDate") || "Up to date"}</span>`;
   });
   el.querySelector('#s-do-update')?.addEventListener('click', async () => {
     const u = window.__app._pendingUpdate;

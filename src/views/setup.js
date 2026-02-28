@@ -21,6 +21,7 @@ let step = 0;
 let env = { bun: null, openclaw: null, providerOk: false, gwRunning: false, connected: false };
 let child = null;
 export function getChild() { return child; }
+const setupDeviceId = `setup-${Date.now()}`;
 
 export function render() {
   const title = isMobile ? t('setup.title.mobile') : t('setup.title.desktop');
@@ -83,6 +84,59 @@ function renderStep(el) {
   }
 }
 
+function createHandshakePayload(nonce, token = '') {
+  return {
+    minProtocol: 3, maxProtocol: 3,
+    client: { id: 'openclaw-desktop-setup', version: '0.6.7', platform: navigator.platform, mode: 'operator' },
+    role: 'operator',
+    scopes: ['operator.read', 'operator.write', 'operator.admin'],
+    caps: [], commands: [], permissions: {},
+    auth: { token },
+    device: { id: setupDeviceId, nonce }
+  };
+}
+
+function validateGateway(url, token = '', timeoutMs = 6000) {
+  return new Promise((resolve, reject) => {
+    let reqId = 0;
+    let done = false;
+    const ws = new WebSocket(url);
+    const timer = setTimeout(() => finish(false, new Error('timeout')), timeoutMs);
+
+    function finish(ok, err) {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      try { ws.close(); } catch {}
+      if (ok) resolve(true);
+      else reject(err || new Error('connect_failed'));
+    }
+
+    ws.onerror = () => finish(false, new Error('connect_failed'));
+    ws.onclose = () => finish(false, new Error('closed'));
+    ws.onmessage = e => {
+      let msg;
+      try { msg = JSON.parse(e.data); } catch { return; }
+      if (msg.type === 'event' && msg.event === 'connect.challenge') {
+        ws.send(JSON.stringify({
+          type: 'req',
+          id: String(++reqId),
+          method: 'connect',
+          params: createHandshakePayload(msg.payload?.nonce, token)
+        }));
+        return;
+      }
+      if (msg.type === 'res' && msg.payload?.type === 'hello-ok') {
+        finish(true);
+        return;
+      }
+      if (msg.type === 'res' && msg.ok === false) {
+        finish(false, new Error(msg.error?.message || 'auth_failed'));
+      }
+    };
+  });
+}
+
 // ══════════════════════════════════
 // Mobile flow
 // ══════════════════════════════════
@@ -117,17 +171,15 @@ async function testMobileConnect(c) {
   const token = c.querySelector('#m-token').value.trim();
   const result = c.querySelector('#m-result');
   if (!url) { result.innerHTML = '<span style="color:var(--danger)">Enter Gateway URL</span>'; return; }
-  result.innerHTML = '<span style="color:var(--warn)">Connecting...</span>';
+  result.innerHTML = '<span style="color:var(--warn)">Connecting + handshake...</span>';
   try {
-    const ws = new WebSocket(url);
-    await new Promise((ok, fail) => { ws.onopen = ok; ws.onerror = fail; setTimeout(fail, 5000); });
-    ws.close();
+    await validateGateway(url, token, 7000);
     window.__app.ws.saveSettings({ url, token });
     env.connected = true;
-    result.innerHTML = '<span style="color:var(--success)">✅ Connected</span>';
-    window.__app.toast('Gateway reachable', 'success');
-  } catch {
-    result.innerHTML = '<span style="color:var(--danger)">Connection failed</span>';
+    result.innerHTML = '<span style="color:var(--success)">✅ Connected (auth ok)</span>';
+    window.__app.toast('Gateway handshake passed', 'success');
+  } catch (e) {
+    result.innerHTML = `<span style="color:var(--danger)">Connection failed: ${e.message}</span>`;
   }
 }
 
@@ -239,6 +291,21 @@ function probeLAN(c) {
 
 async function runCmd(program, args) {
   try { return await Shell().Command.create(program, args).execute(); } catch { return null; }
+}
+
+function shellQuote(v) {
+  return `'${String(v).replace(/'/g, `'\"'\"'`)}'`;
+}
+
+async function runOpenclaw(args) {
+  let out = await runCmd('openclaw', args);
+  if (out?.code === 0) return out;
+
+  out = await runCmd('bun', ['openclaw', ...args]);
+  if (out?.code === 0) return out;
+
+  const cmd = `export PATH="$HOME/.bun/bin:$PATH" && openclaw ${args.map(shellQuote).join(' ')}`;
+  return runCmd('sh', ['-c', cmd]);
 }
 
 // ── Step 0: Detect ──
@@ -379,7 +446,7 @@ async function saveProvider(c) {
   const cmds = [['models.providers.' + provId + '.apiKey', key], ['models.providers.' + provId + '.api', p.api]];
   if (baseUrl) cmds.push(['models.providers.' + provId + '.baseUrl', baseUrl]);
   for (const [path, val] of cmds) {
-    const r = await runCmd('sh', ['-c', `export PATH="$HOME/.bun/bin:$PATH" && openclaw config set '${path}' '${val}'`]);
+    const r = await runOpenclaw(['config', 'set', path, val]);
     if (r?.code !== 0) { result.innerHTML = '<span style="color:var(--danger)">配置失败</span>'; return; }
   }
   env.providerOk = true;
@@ -409,7 +476,7 @@ async function startGateway(c) {
     const cmd = Shell().Command.create('sh', ['-c', 'export PATH="$HOME/.bun/bin:$PATH" && openclaw gateway']);
     cmd.stdout.on('data', line => {
       log.textContent += line + '\n'; log.scrollTop = log.scrollHeight;
-      if (line.includes('Gateway') && (line.includes('listening') || line.includes('ready') || line.includes('started'))) onGatewayReady(c);
+      if (line.includes('Gateway') && (line.includes('listening') || line.includes('ready') || line.includes('started'))) probeGateway(c, 1);
     });
     cmd.stderr.on('data', line => { log.textContent += line + '\n'; log.scrollTop = log.scrollHeight; });
     cmd.on('close', s => { if (!env.gwRunning) { btn.disabled = false; btn.textContent = '重试启动'; log.textContent += '\n⚠️ Gateway 已退出 (exit ' + s.code + ')\n'; } });
@@ -420,16 +487,20 @@ async function startGateway(c) {
 
 function probeGateway(c, retries = 5) {
   if (env.gwRunning) return;
-  let found = false;
-  for (const port of [18789, 19001]) {
-    try {
-      const ws = new WebSocket(`ws://127.0.0.1:${port}`);
-      const t = setTimeout(() => ws.close(), 2000);
-      ws.onopen = () => { clearTimeout(t); ws.close(); if (!found) { found = true; onGatewayReady(c, port); } };
-      ws.onerror = () => clearTimeout(t);
-    } catch {}
-  }
-  if (!found && retries > 0) setTimeout(() => probeGateway(c, retries - 1), 2000);
+  const token = window.__app.ws.state.settings.token || '';
+  (async () => {
+    for (const port of [18789, 19001]) {
+      const url = `ws://127.0.0.1:${port}`;
+      try {
+        await validateGateway(url, token, 3000);
+        onGatewayReady(c, port);
+        return true;
+      } catch {}
+    }
+    return false;
+  })().then(found => {
+    if (!found && retries > 0) setTimeout(() => probeGateway(c, retries - 1), 2000);
+  });
 }
 
 function onGatewayReady(c, port) {

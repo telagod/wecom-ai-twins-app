@@ -17,6 +17,7 @@ export function render() {
         </div>
         <div class="card-sub">${s.settings.url || '—'}</div>
         ${d.version ? `<div class="card-sub">v${d.version}${d.uptime ? ' · ' + t('dash.uptime', fmtUptime(d.uptime)) : ''}</div>` : ''}
+        ${d.healthState || d.presence ? `<div class="card-sub">${[d.healthState, d.presence].filter(Boolean).join(' · ')}</div>` : ''}
         <div style="margin-top:14px">
           <button class="btn ${connected ? 'btn-secondary' : 'btn-primary'} btn-sm" id="gw-toggle">
             ${connected ? icons.stop + ' ' + t('dash.disconnect') : icons.play + ' ' + t('dash.connect')}
@@ -40,6 +41,11 @@ export function render() {
       <div class="glass-card">
         <div class="card-title">${t('dash.channels')}</div>
         <div id="ch-list">${renderChannels(s.channels)}</div>
+      </div>
+      <div class="glass-card">
+        <div class="card-title">${t('dash.cron')}</div>
+        <div class="card-value">${d.cronCount || 0}</div>
+        <div class="card-sub">${d.cronCount ? t('dash.jobs') : t('dash.noCron')}</div>
       </div>
     </div>
     <div style="margin-top:24px">
@@ -80,18 +86,25 @@ function renderChannels(channels) {
 }
 
 function renderSessions(sessions) {
+  const metaMap = window.__app.ws.state._sessionMeta || {};
   if (!sessions.length) return `<div class="glass-card" style="padding:14px;color:var(--fg2);font-size:13px">${t("dash.noSessions")}</div>`;
   return sessions.slice(0, 10).map(s => {
     const label = s.displayName || s.origin?.label || s.sessionKey || '未知';
     const agent = s.agentId || '';
     const model = s.model || '';
     const age = s.lastActiveAt ? fmtAge(s.lastActiveAt) : '';
+    const meta = metaMap[s.sessionKey] || {};
+    const preview = pickPreview(meta.preview);
+    const usageTokens = pickUsageTokens(meta.usage);
     return `<div class="glass-card" style="padding:12px 16px;margin-bottom:6px;cursor:pointer;transform:none" data-key="${s.sessionKey || ''}">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div><div style="font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px">${label}</div>
-          <div style="font-size:11px;color:var(--fg3)">${[agent, model].filter(Boolean).join(' · ')}</div></div>
+          <div style="font-size:11px;color:var(--fg3)">${[agent, model].filter(Boolean).join(' · ')}</div>
+          ${preview ? `<div style="font-size:11px;color:var(--fg2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px">${preview}</div>` : ''}
+        </div>
         <div style="text-align:right">
           <span class="badge badge-success">${t('dash.active')}</span>
+          ${usageTokens ? `<div style="font-size:10px;color:var(--fg3);margin-top:2px">${t("dash.tokens", fmtNum(usageTokens))}</div>` : ''}
           ${age ? `<div style="font-size:10px;color:var(--fg3);margin-top:2px">${age}</div>` : ''}
         </div>
       </div></div>`;
@@ -113,6 +126,16 @@ function fmtAge(ts) {
   if (diff < 3600) return t("dash.minAgo", Math.floor(diff / 60));
   if (diff < 86400) return t("dash.hourAgo", Math.floor(diff / 3600));
   return t("dash.dayAgo", Math.floor(diff / 86400));
+}
+
+function pickPreview(preview) {
+  if (!preview) return '';
+  return preview.preview || preview.summary || preview.text || preview.content || '';
+}
+
+function pickUsageTokens(usage) {
+  if (!usage) return 0;
+  return usage.totalTokens || usage.total || usage.tokens || usage.tokenTotal || 0;
 }
 
 export function mount(el) {
@@ -140,11 +163,44 @@ async function loadExtended() {
   const { ws } = window.__app;
   if (!ws.isConnected()) return;
   try {
-    const status = await ws.observe.status();
+    const [statusRes, healthRes, presenceRes, cronRes, sessionsRes, channelsRes] = await Promise.allSettled([
+      ws.observe.status(),
+      ws.observe.health(),
+      ws.observe.presence(),
+      ws.observe.cronList(),
+      ws.observe.sessionsList(),
+      ws.observe.channelsStatus(),
+    ]);
+    const status = statusRes.status === 'fulfilled' ? statusRes.value : null;
+    const health = healthRes.status === 'fulfilled' ? healthRes.value : null;
+    const presence = presenceRes.status === 'fulfilled' ? presenceRes.value : null;
+    const cron = cronRes.status === 'fulfilled' ? cronRes.value : null;
+    const sessionsPayload = sessionsRes.status === 'fulfilled' ? sessionsRes.value : null;
+    const channelsPayload = channelsRes.status === 'fulfilled' ? channelsRes.value : null;
+    if (Array.isArray(sessionsPayload?.sessions)) ws.state.sessions = sessionsPayload.sessions;
+    if (Array.isArray(channelsPayload?.channels)) ws.state.channels = channelsPayload.channels;
     ws.state._dashboard = {
       version: status?.version,
       uptime: status?.uptime,
       tokenTotal: status?.tokenUsage?.total,
+      healthState: health?.status || health?.state || null,
+      presence: presence?.status || presence?.state || null,
+      cronCount: Array.isArray(cron?.jobs) ? cron.jobs.length : Array.isArray(cron?.crons) ? cron.crons.length : 0,
     };
+
+    const sessions = ws.state.sessions || [];
+    const targets = sessions.map(s => s.sessionKey).filter(Boolean).slice(0, 10);
+    const meta = ws.state._sessionMeta || {};
+    await Promise.allSettled(targets.map(async sessionKey => {
+      const [previewRes, usageRes] = await Promise.allSettled([
+        ws.observe.sessionPreview(sessionKey),
+        ws.observe.sessionUsage(sessionKey),
+      ]);
+      meta[sessionKey] = {
+        preview: previewRes.status === 'fulfilled' ? previewRes.value : null,
+        usage: usageRes.status === 'fulfilled' ? usageRes.value : null,
+      };
+    }));
+    ws.state._sessionMeta = meta;
   } catch {}
 }

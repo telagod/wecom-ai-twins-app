@@ -3,3 +3,6 @@ src-tauri/target/
 dist/
 *.log
 .signing/
+.ace-tool/
+playwright-report/
+test-results/
