@@ -16,6 +16,7 @@
         { "name": "sh", "cmd": "sh", "args": true, "sidecar": false },
         { "name": "bun", "cmd": "bun", "args": true, "sidecar": false },
         { "name": "node", "cmd": "node", "args": true, "sidecar": false },
+        { "name": "npm", "cmd": "npm", "args": true, "sidecar": false },
         { "name": "openclaw", "cmd": "openclaw", "args": true, "sidecar": false }
       ]
     },
@@ -24,6 +25,7 @@
       "allow": [
         { "name": "sh", "cmd": "sh", "args": true, "sidecar": false },
         { "name": "bun", "cmd": "bun", "args": true, "sidecar": false },
+        { "name": "npm", "cmd": "npm", "args": true, "sidecar": false },
         { "name": "openclaw", "cmd": "openclaw", "args": true, "sidecar": false }
       ]
     }

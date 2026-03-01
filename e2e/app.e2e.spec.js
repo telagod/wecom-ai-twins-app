@@ -206,6 +206,15 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
 });
 
+test('setup shows node-first runtime guidance', async ({ page }) => {
+  await page.evaluate(() => localStorage.removeItem('openclaw-desktop'));
+  await page.goto('/#setup');
+
+  await expect(page.getByText('Node.js Runtime')).toBeVisible();
+  await expect(page.getByText(/officially recommends Node\.js/i)).toBeVisible();
+  await expect(page.getByText('Bun (optional)')).toBeVisible();
+});
+
 test('dashboard shows gateway status and session metrics', async ({ page }) => {
   await expect(page.locator('#gw-dot.on')).toBeVisible();
   await page.locator('.nav-item[data-route="dashboard"]').click();
@@ -249,4 +258,3 @@ test('agents supports create update delete lifecycle', async ({ page }) => {
   await page.click('#agent-delete');
   await expect(page.locator('#agents-grid')).not.toContainText('agent-new');
 });
-

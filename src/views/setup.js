@@ -18,7 +18,7 @@ const steps = isMobile ? mobileSteps : desktopSteps;
 const lastStep = steps.length - 1;
 
 let step = 0;
-let env = { bun: null, openclaw: null, providerOk: false, gwRunning: false, connected: false };
+let env = { node: null, bun: null, openclaw: null, providerOk: false, gwRunning: false, connected: false };
 let child = null;
 export function getChild() { return child; }
 const setupDeviceId = `setup-${Date.now()}`;
@@ -60,7 +60,7 @@ function handleNextMobile(el) {
 
 function handleNextDesktop(el) {
   if (step === 0) {
-    if (!env.bun) { window.__app.toast('Install Bun first', 'error'); return; }
+    if (!env.node) { window.__app.toast(t('setup.detect.needNode'), 'error'); return; }
     step = env.openclaw ? 2 : 1;
   } else if (step === 1) {
     if (!env.openclaw) { window.__app.toast('Install OpenClaw first', 'error'); return; }
@@ -87,7 +87,7 @@ function renderStep(el) {
 function createHandshakePayload(nonce, token = '') {
   return {
     minProtocol: 3, maxProtocol: 3,
-    client: { id: 'openclaw-desktop-setup', version: '0.6.7', platform: navigator.platform, mode: 'operator' },
+    client: { id: 'openclaw-desktop-setup', version: '0.6.8', platform: navigator.platform, mode: 'operator' },
     role: 'operator',
     scopes: ['operator.read', 'operator.write', 'operator.admin'],
     caps: [], commands: [], permissions: {},
@@ -311,8 +311,13 @@ async function runOpenclaw(args) {
 // ── Step 0: Detect ──
 
 function renderDetect(c) {
-  c.innerHTML = `<h3 style="margin-bottom:16px">环境检测</h3>
-    <div id="checks">${checkItem('Bun 运行时', 'chk-bun')}${checkItem('OpenClaw', 'chk-oc')}</div>`;
+  c.innerHTML = `<h3 style="margin-bottom:16px">${t('setup.detect.title')}</h3>
+    <p style="color:var(--fg2);margin-bottom:12px">${t('setup.detect.nodeHint')}</p>
+    <div id="checks">
+      ${checkItem(t('setup.detect.node'), 'chk-node')}
+      ${checkItem(t('setup.detect.openclaw'), 'chk-oc')}
+      ${checkItem(t('setup.detect.bunOptional'), 'chk-bun')}
+    </div>`;
   runDetect(c);
 }
 
@@ -330,59 +335,48 @@ function setCheck(el, ok, detail) {
 
 async function runDetect(c) {
   const items = c.querySelectorAll('.check-item');
-  let bunOut = await runCmd('bun', ['--version']);
-  if (!bunOut || bunOut.code !== 0) bunOut = await runCmd('sh', ['-c', '$HOME/.bun/bin/bun --version']);
-  if (bunOut?.code === 0) { env.bun = bunOut.stdout.trim(); setCheck(items[0], true, `v${env.bun}`); }
-  else { env.bun = null; setCheck(items[0], false, '未找到 — 点击下方「安装 Bun」或 <a href="https://bun.sh" target="_blank" style="color:var(--accent)">手动安装</a>'); addBunInstallBtn(c); }
+  const nodeOut = await runCmd('node', ['--version']);
+  const npmOut = await runCmd('npm', ['--version']);
+  if (nodeOut?.code === 0 && npmOut?.code === 0) {
+    env.node = nodeOut.stdout.trim();
+    setCheck(items[0], true, `${env.node} / npm ${npmOut.stdout.trim()}`);
+  } else if (nodeOut?.code === 0) {
+    env.node = null;
+    setCheck(items[0], false, t('setup.detect.npmMissing'));
+  } else {
+    env.node = null;
+    setCheck(items[0], false, t('setup.detect.nodeMissing'));
+  }
 
   const ocOut = await runCmd('openclaw', ['--version']);
   if (ocOut?.code === 0) { env.openclaw = ocOut.stdout.trim(); setCheck(items[1], true, env.openclaw); }
   else {
-    const ocBun = env.bun ? await runCmd('sh', ['-c', 'bun openclaw --version 2>/dev/null || $HOME/.bun/bin/bun openclaw --version']) : null;
-    if (ocBun?.code === 0) { env.openclaw = ocBun.stdout.trim(); setCheck(items[1], true, env.openclaw + ' (via bun)'); }
-    else { env.openclaw = null; setCheck(items[1], false, '未安装 — 下一步将自动安装'); }
+    const ocBun = await runCmd('sh', ['-c', 'bun openclaw --version 2>/dev/null || $HOME/.bun/bin/bun openclaw --version']);
+    if (ocBun?.code === 0) {
+      env.openclaw = ocBun.stdout.trim();
+      setCheck(items[1], true, t('setup.detect.openclawViaBun', env.openclaw));
+    } else {
+      env.openclaw = null;
+      setCheck(items[1], false, t('setup.detect.notInstalled'));
+    }
   }
-}
 
-function addBunInstallBtn(c) {
-  const wrap = document.createElement('div');
-  wrap.style.cssText = 'margin-top:12px';
-  wrap.innerHTML = `<button class="btn btn-primary btn-sm" id="btn-bun-install">安装 Bun</button>
-    <div class="terminal-box" id="bun-install-log" style="display:none;height:120px;overflow-y:auto;background:var(--bg1);border-radius:8px;padding:12px;font-family:monospace;font-size:12px;white-space:pre-wrap;margin-top:8px"></div>`;
-  c.appendChild(wrap);
-  wrap.querySelector('#btn-bun-install').onclick = () => installBun(c);
-}
-
-async function installBun(c) {
-  const btn = c.querySelector('#btn-bun-install'), log = c.querySelector('#bun-install-log');
-  btn.disabled = true; btn.textContent = '安装中...';
-  log.style.display = ''; log.textContent = '📥 正在下载 Bun 安装脚本...\n';
-  try {
-    const cmd = Shell().Command.create('sh', ['-c',
-      'echo "📥 下载安装脚本..." && ' +
-      'curl -fL# https://bun.sh/install -o /tmp/bun-install.sh 2>&1 && ' +
-      'echo "📦 正在安装 Bun..." && ' +
-      'bash /tmp/bun-install.sh 2>&1 && ' +
-      'echo "✅ 安装完成" && rm -f /tmp/bun-install.sh'
-    ]);
-    cmd.stdout.on('data', l => { log.textContent += l + '\n'; log.scrollTop = log.scrollHeight; });
-    cmd.stderr.on('data', l => { log.textContent += l + '\n'; log.scrollTop = log.scrollHeight; });
-    await cmd.spawn();
-    const status = await new Promise(r => cmd.on('close', r));
-    if (status.code === 0) {
-      env.bun = 'installed'; btn.textContent = '已安装';
-      window.__app.toast('Bun installed', 'success');
-      const items = c.querySelectorAll('.check-item');
-      const v = await runCmd('sh', ['-c', '$HOME/.bun/bin/bun --version']);
-      if (v?.code === 0) { env.bun = v.stdout.trim(); setCheck(items[0], true, `v${env.bun}`); }
-    } else { btn.disabled = false; btn.textContent = '重试'; log.textContent += '\n❌ 安装失败 (exit ' + status.code + ')\n'; }
-  } catch (e) { btn.disabled = false; btn.textContent = '重试'; log.textContent += '\n❌ ' + e.message + '\n'; }
+  let bunOut = await runCmd('bun', ['--version']);
+  if (!bunOut || bunOut.code !== 0) bunOut = await runCmd('sh', ['-c', '$HOME/.bun/bin/bun --version']);
+  if (bunOut?.code === 0) {
+    env.bun = bunOut.stdout.trim();
+    setCheck(items[2], true, `v${env.bun}`);
+  } else {
+    env.bun = null;
+    setCheck(items[2], false, t('setup.detect.bunMissing'));
+  }
 }
 
 // ── Step 1: Install OpenClaw ──
 
 function renderInstall(c) {
   c.innerHTML = `<h3 style="margin-bottom:16px">安装 OpenClaw</h3>
+    <p style="color:var(--fg2);margin-bottom:12px">${t('setup.install.nodeFirst')}</p>
     <div class="terminal-box" id="install-log" style="height:200px;overflow-y:auto;background:var(--bg1);border-radius:8px;padding:12px;font-family:monospace;font-size:13px;white-space:pre-wrap"></div>
     <button class="btn btn-primary btn-sm" id="btn-install" style="margin-top:12px">开始安装</button>`;
   c.querySelector('#btn-install').onclick = () => doInstall(c);
@@ -391,19 +385,19 @@ function renderInstall(c) {
 async function doInstall(c) {
   const log = c.querySelector('#install-log'), btn = c.querySelector('#btn-install');
   btn.disabled = true; btn.textContent = '安装中...';
-  log.textContent = '📦 正在安装 OpenClaw...\n';
+  log.textContent = '📦 正在安装 OpenClaw（Node runtime）...\n$ npm install -g openclaw@latest\n';
   try {
-    const cmd = Shell().Command.create('sh', ['-c',
-      'export PATH="$HOME/.bun/bin:$PATH" && ' +
-      'echo "📥 bun install -g openclaw" && ' +
-      'bun install -g openclaw 2>&1 && ' +
-      'echo "✅ 安装完成"'
-    ]);
+    const cmd = Shell().Command.create('npm', ['install', '-g', 'openclaw@latest']);
     cmd.stdout.on('data', l => { log.textContent += l + '\n'; log.scrollTop = log.scrollHeight; });
     cmd.stderr.on('data', l => { log.textContent += l + '\n'; log.scrollTop = log.scrollHeight; });
     await cmd.spawn();
     const status = await new Promise(r => cmd.on('close', r));
-    if (status.code === 0) { env.openclaw = 'installed'; btn.textContent = '已安装'; window.__app.toast('OpenClaw installed', 'success'); }
+    if (status.code === 0) {
+      const ver = await runCmd('openclaw', ['--version']);
+      env.openclaw = ver?.code === 0 ? ver.stdout.trim() : 'installed';
+      btn.textContent = '已安装';
+      window.__app.toast('OpenClaw installed', 'success');
+    }
     else { btn.disabled = false; btn.textContent = '重试安装'; log.textContent += '\n❌ 安装失败 (exit ' + status.code + ')\n'; }
   } catch (e) { btn.disabled = false; btn.textContent = '重试安装'; log.textContent += '\n❌ ' + e.message + '\n'; }
 }
@@ -471,17 +465,33 @@ function renderGateway(c) {
 async function startGateway(c) {
   const log = c.querySelector('#gw-log'), btn = c.querySelector('#btn-gw-start');
   btn.disabled = true; btn.textContent = '启动中...';
-  log.textContent = '$ openclaw gateway\n';
+  log.textContent = '$ openclaw gateway uninstall\n$ openclaw gateway install\n$ openclaw gateway start\n$ openclaw gateway status\n';
   try {
-    const cmd = Shell().Command.create('sh', ['-c', 'export PATH="$HOME/.bun/bin:$PATH" && openclaw gateway']);
-    cmd.stdout.on('data', line => {
-      log.textContent += line + '\n'; log.scrollTop = log.scrollHeight;
-      if (line.includes('Gateway') && (line.includes('listening') || line.includes('ready') || line.includes('started'))) probeGateway(c, 1);
-    });
-    cmd.stderr.on('data', line => { log.textContent += line + '\n'; log.scrollTop = log.scrollHeight; });
-    cmd.on('close', s => { if (!env.gwRunning) { btn.disabled = false; btn.textContent = '重试启动'; log.textContent += '\n⚠️ Gateway 已退出 (exit ' + s.code + ')\n'; } });
-    child = await cmd.spawn();
-    setTimeout(() => probeGateway(c), 3000);
+    const uninstall = await runOpenclaw(['gateway', 'uninstall']);
+    if (uninstall?.stdout) log.textContent += uninstall.stdout + '\n';
+    if (uninstall?.stderr) log.textContent += uninstall.stderr + '\n';
+
+    const install = await runOpenclaw(['gateway', 'install']);
+    if (install?.stdout) log.textContent += install.stdout + '\n';
+    if (install?.stderr) log.textContent += install.stderr + '\n';
+    if (!install || install.code !== 0) throw new Error('gateway install failed');
+
+    const start = await runOpenclaw(['gateway', 'start']);
+    if (start?.stdout) log.textContent += start.stdout + '\n';
+    if (start?.stderr) log.textContent += start.stderr + '\n';
+    if (!start || start.code !== 0) throw new Error('gateway start failed');
+
+    const status = await runOpenclaw(['gateway', 'status']);
+    if (status?.stdout) log.textContent += status.stdout + '\n';
+    if (status?.stderr) log.textContent += status.stderr + '\n';
+
+    probeGateway(c, 6);
+    setTimeout(() => {
+      if (!env.gwRunning) {
+        btn.disabled = false;
+        btn.textContent = '重试启动';
+      }
+    }, 12000);
   } catch (e) { btn.disabled = false; btn.textContent = '重试启动'; log.textContent += '\n❌ ' + e.message + '\n'; }
 }
 
@@ -527,5 +537,5 @@ function renderDone(c) {
 
 export function destroy() {
   step = 0;
-  env = { bun: null, openclaw: null, providerOk: false, gwRunning: false, connected: false };
+  env = { node: null, bun: null, openclaw: null, providerOk: false, gwRunning: false, connected: false };
 }
