@@ -4940,7 +4940,7 @@ dependencies = [
 
 [[package]]
 name = "wecom-twins-app"
-version = "0.6.9"
+version = "0.6.10"
 dependencies = [
  "serde",
  "serde_json",
